@@ -96,7 +96,8 @@ impl Collators {
 	/// The config a core running `para_ids` under this set is assigned. An empty list is a
 	/// *parked* core: same collator set, same authorizer code, no para.
 	fn config(&self, para_ids: Vec<ParaId>) -> AuthConfig {
-		let (collator_set_root, _) = build_collator_proofs(&self.keys).expect("valid test collator set");
+		let (collator_set_root, _) =
+			build_collator_proofs(&self.keys).expect("valid test collator set");
 		AuthConfig {
 			para_ids,
 			parachain_service: PARACHAIN_SERVICE_ID,
@@ -181,7 +182,7 @@ fn authorize_under(
 	token: &AuthToken,
 	package: &WorkPackage,
 ) -> Result<DevelopmentAuthTrace, AuthorizationError> {
-	let slot = package.context.lookup_anchor_slot;
+	let slot = package.context.anchor_slot;
 	match scheme {
 		Scheme::Ed25519 => authorize::<Ed25519>(config, token, package, slot),
 		Scheme::Sr25519 => authorize::<Sr25519>(config, token, package, slot),
@@ -199,7 +200,7 @@ fn a_keystore_token_passes_its_own_verifier_works() {
 	for scheme in [Scheme::Ed25519, Scheme::Sr25519] {
 		let collators = Collators::new(scheme, &["//Alice", "//Bob", "//Charlie"]);
 		let config = collators.config(vec![ParaId::new(0)]);
-		// The round-robin picks the collator from the lookup-anchor slot, so walking the slot is
+		// The round-robin picks the collator from the anchor slot, so walking the slot is
 		// what walks the set.
 		for index in 0..collators.keys.len() {
 			let package = block(1, index as Slot);

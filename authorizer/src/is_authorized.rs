@@ -29,12 +29,8 @@ pub fn is_authorized<S: SignatureVerifier>(
 	let token = AuthToken::decode_all(&mut &auth_token().0[..])
 		.map_err(|_| AuthorizationError::UndecodableAuthToken)?;
 
-	// §7.1 step 4 wants the slot to select the collator with. FIXME: the design says to read the
-	// *anchor* timeslot from the refinement context, but the Gray Paper's RefineContext exposes
-	// only the lookup-anchor slot — the anchor's slot is not available in-core. Using
-	// `lookup_anchor_slot` here lets a collator pick any lookup anchor mapping to its own index;
-	// needs upstreaming.
-	let slot = refine_context().lookup_anchor_slot;
+	// §7.1 selects the collator using the recent anchor's timeslot.
+	let slot = refine_context().anchor_slot;
 
 	Ok(AuthTrace(authorize::<S>(&config, &token, &package, slot)?.encode()))
 }
@@ -44,7 +40,7 @@ pub fn authorize<S: SignatureVerifier>(
 	config: &AuthConfig,
 	token: &AuthToken,
 	package: &WorkPackage,
-	lookup_anchor_slot: Slot,
+	anchor_slot: Slot,
 ) -> Result<DevelopmentAuthTrace, AuthorizationError> {
 	// Deliberately outside the sudo bypass: para-specific coretime must not be spent on other
 	// JAM work whatever a package carries (SPEC_GAPS #7).
@@ -63,7 +59,7 @@ pub fn authorize<S: SignatureVerifier>(
 	if config.para_ids.len() != package.items.len() {
 		return Err(AuthorizationError::InvalidWorkItemCount);
 	}
-	aura::authorize::<S>(config, token, package, lookup_anchor_slot)
+	aura::authorize::<S>(config, token, package, anchor_slot)
 		.map(|aura| DevelopmentAuthTrace { aura, sudo: false })
 		.map_err(AuthorizationError::BadAuthorization)
 }

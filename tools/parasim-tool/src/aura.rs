@@ -163,7 +163,7 @@ impl Aura {
 		Authorizer { code_hash: self.code_hash, config: RawAuthConfig(config.encode()) }
 	}
 
-	/// Sign `package` as whichever collator its lookup anchor names.
+	/// Sign `package` as whichever collator its anchor names.
 	///
 	/// The round-robin index is read out of the config the package itself carries, not out of
 	/// this struct's fields, so the token can only ever be built against the config the
@@ -173,7 +173,7 @@ impl Aura {
 		let config = AuthConfig::decode_all(&mut &package.authorizer.config[..])
 			.map_err(|e| format!("the package's own authorizer config does not decode: {e}"))?;
 		let index = config
-			.expected_collator_index(package.context.lookup_anchor_slot)
+			.expected_collator_index(package.context.anchor_slot)
 			.map_err(|e| format!("the package's own AURA config is invalid: {e:?}"))?
 			as usize;
 		let pair = self
@@ -188,9 +188,9 @@ impl Aura {
 			signature: pair.sign(payload.as_bytes()),
 		};
 		tracing::info!(
-			"signing as collator {index} of {} (lookup anchor slot {})",
+			"signing as collator {index} of {} (anchor slot {})",
 			self.pairs.len(),
-			package.context.lookup_anchor_slot
+			package.context.anchor_slot
 		);
 		Ok(Authorization(token.encode()))
 	}
@@ -226,6 +226,36 @@ pub fn sudo_token() -> Authorization {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn anchor_slot_selection_works() {
+		for scheme in [Scheme::Ed25519, Scheme::Sr25519] {
+			let aura = Aura::from_dev_names("alice,bob", scheme, CodeHash::zero(), 5, 2)
+				.expect("dev names derive; qed");
+			let package = WorkPackage {
+				authorization: Default::default(),
+				auth_code_host: 5,
+				authorizer: aura.authorizer(ParaId::new(0)),
+				context: jam_types::RefineContext {
+					anchor: Default::default(),
+					anchor_slot: 2,
+					state_root: Default::default(),
+					beefy_root: Default::default(),
+					lookup_anchor: Default::default(),
+					lookup_anchor_slot: 14_404,
+					lookup_anchor_state_root: Default::default(),
+					prerequisites: Default::default(),
+				},
+				items: Default::default(),
+			};
+			let encoded = aura.token(&package).expect("anchor-selected collator can sign");
+			let token = AuthToken::decode_all(&mut &encoded[..]).expect("token must decode");
+			assert_eq!(token.key, aura.pairs[1].public());
+			token
+				.check_proof(&aura.config(ParaId::new(0)), 1)
+				.expect("proof selects collator 1");
+		}
+	}
 
 	fn public(scheme: Scheme, name: &str) -> String {
 		let pair = CollatorPair::from_dev_name(scheme, name).expect("dev names derive; qed");
