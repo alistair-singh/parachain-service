@@ -13,7 +13,6 @@ use jam_types::{
 	WorkPackage, WorkPayload,
 };
 use parachain_authorizer::{aura, aura::build_collator_proofs, ParaId};
-use parachain_service_core::authorization::DevelopmentAuthTrace;
 use primitive_types::H256;
 
 const SERVICE_ID: ServiceId = 0;
@@ -73,7 +72,7 @@ pub fn good_token() -> AuthToken {
 }
 
 pub fn good_trace() -> AuthTrace {
-	let trace = DevelopmentAuthTrace { aura: aura::AuthTrace { author_key: [0; 32] }, sudo: false };
+	let trace = aura::AuthTrace { author_key: [0; 32] };
 	AuthTrace(trace.encode())
 }
 
@@ -121,8 +120,7 @@ pub fn make_auth_with_seed(
 	let sig_bytes: [u8; 64] = signing_key.sign(wp_hash.as_bytes()).to_bytes();
 
 	let token = aura::AuthToken { proof, key: key_bytes, signature: sig_bytes };
-	let trace =
-		DevelopmentAuthTrace { aura: aura::AuthTrace { author_key: key_bytes }, sudo: false };
+	let trace = aura::AuthTrace { author_key: key_bytes };
 
 	(config_enc, AuthToken(token.encode()), AuthTrace(trace.encode()))
 }

@@ -9,9 +9,7 @@ members = [
     "service",
     "service/bin",
     "testing/mock-dest-service",
-    "testing/parasim-service",
     "tools/executor",
-    "tools/parasim-tool",
 ]
 exclude = [
     "vendor/polkadot-sdk-companion",
@@ -40,7 +38,6 @@ jam-codec = { version = "0.1.1", default-features = false, features = ["derive"]
 jam-pvm-common = { path = "vendor/polkajam/crates/jam-pvm-common", default-features = false }
 jam-std-common = { path = "vendor/polkajam/crates/jam-std-common" }
 jam-null-authorizer-bin = { path = "vendor/polkajam/services/null-authorizer-bin" }
-jam-bootstrap-service-common = { path = "vendor/polkajam/services/bootstrap-service/common", features = ["std"] }
 # Unpublished Polkajam crates remain vendored.
 polkajam-trie = { package = "trie", path = "vendor/polkajam/crates/trie" }
 cargo-jam-build = { path = "vendor/polkajam/crates/cargo-jam-build" }
@@ -50,15 +47,9 @@ sp-keystore = { path = "vendor/polkadot-sdk-companion/substrate/primitives/keyst
 async-stream = "0.3"
 async-trait = "0.1"
 bytes = { version = "1.7.1", default-features = false }
-futures = "0.3"
 jsonrpsee = { version = "0.26.0", default-features = false }
 serde = { version = "1", default-features = false }
 serde_json = "1"
-tokio = { version = "1", default-features = false }
-tracing = { version = "0.1", default-features = false }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-clap = { version = "4.5", features = ["derive", "env"] }
-url = "2.5"
 binary-merkle-tree = { version = "16.1.1", default-features = false }
 blake2b_simd = { version = "1", default-features = false }
 ed25519-dalek = { version = "2", default-features = false }
@@ -78,16 +69,6 @@ parachain-authorizer = { path = "authorizer" }
 parachain-authorizer-ed25519 = { path = "authorizer-ed25519" }
 parachain-authorizer-sr25519 = { path = "authorizer-sr25519" }
 parachain-service-core = { path = "core", default-features = false }
-parasim-service = { path = "testing/parasim-service" }
-# These two used to live here as `cumulus/jam-{,rpc-}interface`; polkadot-sdk upstreamed them
-# verbatim (`cumulus/jam/{interface,rpc-interface}`, commit ca25145db9), so we consume theirs and
-# keep no second copy to drift. Fetched from GitHub so a fresh checkout needs no sibling
-# polkadot-sdk directory; for local development against uncommitted polkadot-sdk changes, swap
-# in the commented path form (sibling checkout named `polkadot-sdk-master`).
-cumulus-jam-interface = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "mku-jam-collator-poc-2" }
-cumulus-jam-rpc-interface = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "mku-jam-collator-poc-2" }
-# cumulus-jam-interface = { path = "../polkadot-sdk-master/cumulus/jam/interface" }
-# cumulus-jam-rpc-interface = { path = "../polkadot-sdk-master/cumulus/jam/rpc-interface" }
 
 codec = { version = "3.7", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 thiserror = "2.0"

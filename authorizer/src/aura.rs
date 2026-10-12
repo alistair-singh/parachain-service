@@ -1,14 +1,10 @@
-//! AURA authorizer with SUDO key support for parasim testing.
+//! AURA adapter for the service's vendored JAM work-package format.
 
-pub use cumulus_aura_authorizer::*;
-
-/// Development sentinel that bypasses signature, membership, item-count, and slot checks.
-/// Target-service validation still applies. This permits control commands on parked cores
-/// whose config has no para IDs. The sentinel preserves the three-field token encoding.
-///
-/// FIXME: Anyone can submit unsigned control commands with this key. Remove or isolate
-/// this bypass before production use.
-pub const SUDO_KEY: CollatorKey = [0xFF; 32];
+pub use cumulus_aura_authorizer::{
+	build_collator_proofs, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
+	AuthorizationError, CollatorKey, CollatorProofError, CollatorSignature, ConfigError, ParaId,
+	SignatureVerifier, TokenError, WORK_PACKAGE_SIGN_CTX,
+};
 
 /// Hash the service's vendored JAM work-package format without converting it to the
 /// older published format. In particular, retain every refinement-context field.
@@ -25,11 +21,19 @@ pub fn signable_work_package_hash(package: &jam_types::WorkPackage) -> primitive
 }
 
 /// Apply shared AURA validation to the service's vendored JAM work-package format.
-pub fn authorize<S: SignatureVerifier>(
+pub(crate) fn authorize<S: SignatureVerifier>(
 	config: &AuthConfig,
 	token: &AuthToken,
 	package: &jam_types::WorkPackage,
 	slot: jam_types::Slot,
 ) -> Result<AuthTrace, AuthorizationError> {
-	authorize_hash::<S>(config, token, signable_work_package_hash(package), slot)
+	let collator_index =
+		config.expected_collator_index(slot).map_err(AuthorizationError::BadConfig)?;
+	token
+		.check_proof(config, collator_index)
+		.map_err(AuthorizationError::BadToken)?;
+	token
+		.check_signature::<S>(signable_work_package_hash(package))
+		.map_err(AuthorizationError::BadToken)?;
+	Ok(AuthTrace { author_key: token.key })
 }

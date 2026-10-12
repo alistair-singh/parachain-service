@@ -2,10 +2,10 @@ use super::aura::{self, AuthConfig, AuthToken, SignatureVerifier};
 use codec::{DecodeAll, Encode};
 use jam_pvm_common::is_authorized::{auth_token, refine_context, work_package};
 use jam_types::{AuthTrace, CoreIndex, Slot, WorkPackage};
-use parachain_service_core::authorization::DevelopmentAuthTrace;
+use parachain_service_core::authorization::AuthTrace as AuraAuthTrace;
 
 #[derive(Debug)]
-pub enum AuthorizationError {
+pub(crate) enum AuthorizationError {
 	UndecodableAuthConfig,
 	UndecodableAuthToken,
 	/// Number of work items does not match the number of para IDs.
@@ -15,7 +15,7 @@ pub enum AuthorizationError {
 	BadAuthorization(aura::AuthorizationError),
 }
 
-pub fn is_authorized<S: SignatureVerifier>(
+pub(crate) fn is_authorized<S: SignatureVerifier>(
 	_core: CoreIndex,
 ) -> Result<AuthTrace, AuthorizationError> {
 	let package = work_package();
@@ -36,30 +36,22 @@ pub fn is_authorized<S: SignatureVerifier>(
 }
 
 /// Validate a package without host calls, using the supplied config, token, and slot.
-pub fn authorize<S: SignatureVerifier>(
+fn authorize<S: SignatureVerifier>(
 	config: &AuthConfig,
 	token: &AuthToken,
 	package: &WorkPackage,
 	anchor_slot: Slot,
-) -> Result<DevelopmentAuthTrace, AuthorizationError> {
-	// Deliberately outside the sudo bypass: para-specific coretime must not be spent on other
-	// JAM work whatever a package carries (SPEC_GAPS #7).
+) -> Result<AuraAuthTrace, AuthorizationError> {
 	if package.items.iter().any(|item| item.service != config.parachain_service) {
 		return Err(AuthorizationError::InvalidWorkItemService);
-	}
-
-	// Permit control commands on parked cores. FIXME: remove the development bypass; see SUDO_KEY.
-	if token.key == aura::SUDO_KEY {
-		return Ok(DevelopmentAuthTrace {
-			aura: aura::AuthTrace { author_key: token.key },
-			sudo: true,
-		});
 	}
 
 	if config.para_ids.len() != package.items.len() {
 		return Err(AuthorizationError::InvalidWorkItemCount);
 	}
 	aura::authorize::<S>(config, token, package, anchor_slot)
-		.map(|aura| DevelopmentAuthTrace { aura, sudo: false })
 		.map_err(AuthorizationError::BadAuthorization)
 }
+
+#[cfg(test)]
+mod tests;

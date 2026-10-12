@@ -1,27 +1,27 @@
 //! Keystore signing and guest verification for both schemes, including wrong-scheme rejection.
 //! sr25519 signatures must use the keystore's `substrate` transcript context.
 
+use crate::{
+	aura::{
+		build_collator_proofs, signable_work_package_hash, AuthConfig, AuthToken, CollatorKey,
+		CollatorSignature,
+	},
+	is_authorized::{authorize, AuthorizationError},
+};
 use codec::{DecodeAll as _, Encode};
 use jam_types::{
 	AuthConfig as RawAuthConfig, Authorization, Authorizer, CodeHash, HeaderHash, RefineContext,
 	Slot, WorkItem, WorkPackage, WorkPayload,
 };
-use parachain_authorizer::{
-	aura::{
-		build_collator_proofs, signable_work_package_hash, AuthConfig, AuthToken, CollatorKey,
-		CollatorSignature, SUDO_KEY,
-	},
-	is_authorized::{authorize, AuthorizationError},
-};
 use parachain_authorizer_ed25519::Ed25519;
 use parachain_authorizer_sr25519::Sr25519;
 use parachain_service_core::{
-	authorization::DevelopmentAuthTrace,
+	authorization::AuthTrace,
 	types::ParaId,
 	upward_message::{UpwardMessage, UpwardMessages},
 	PARACHAIN_SERVICE_ID,
 };
-use primitive_types::{H256, U256};
+use primitive_types::H256;
 
 /// Independent token layout from design §7.1, to check wire compatibility.
 #[derive(Encode)]
@@ -156,8 +156,7 @@ fn package(anchor_byte: u8, slot: Slot, payload: Vec<u8>) -> WorkPackage {
 	}
 }
 
-/// A parachain block, as far as the authorizer is concerned: any payload at all. Nothing in a
-/// payload tells the two apart — the sudo lane does, which is why it is a property of the token.
+/// A parachain block, as far as the authorizer is concerned: any payload at all.
 fn block(anchor_byte: u8, slot: Slot) -> WorkPackage {
 	package(anchor_byte, slot, b"contract".to_vec())
 }
@@ -181,7 +180,7 @@ fn authorize_under(
 	config: &AuthConfig,
 	token: &AuthToken,
 	package: &WorkPackage,
-) -> Result<DevelopmentAuthTrace, AuthorizationError> {
+) -> Result<AuthTrace, AuthorizationError> {
 	let slot = package.context.anchor_slot;
 	match scheme {
 		Scheme::Ed25519 => authorize::<Ed25519>(config, token, package, slot),
@@ -213,8 +212,7 @@ fn a_keystore_token_passes_its_own_verifier_works() {
 	}
 }
 
-/// The compatibility pin: a token in the spec's three-field shape, assembled by someone who has
-/// never heard of the sudo lane, is admitted by the guest of its own scheme.
+/// A token in the spec's three-field shape is admitted by the guest of its own scheme.
 ///
 /// `decode_all` is what makes this a wire test rather than a type test — it fails on a trailing
 /// byte, so a fourth field appearing in `AuthToken` breaks this even if every other test still
@@ -240,24 +238,6 @@ fn a_spec_shaped_token_passes_its_own_verifier_works() {
 			"{scheme:?}: a spec-shaped token was rejected by its own verifier"
 		);
 	}
-}
-
-/// The sentinel's safety argument, checked rather than left in prose.
-///
-/// A public key on either curve is the compressed encoding of a point, and the low 255 bits of
-/// that encoding are a coordinate reduced modulo the curves' shared field prime, 2^255 − 19.
-/// `SUDO_KEY`'s low 255 bits are 2^255 − 1, which is not reduced — so these bytes are not the
-/// encoding of any key a keygen can emit, and nobody can find themselves in a collator set under
-/// the one key that opens the sudo lane.
-#[test]
-fn the_sudo_sentinel_is_no_keys_encoding_works() {
-	let field_prime = (U256::MAX >> 1) - 18;
-	let mut coordinate = SUDO_KEY;
-	coordinate[31] &= 0x7f; // The top bit carries a sign, not part of the coordinate.
-	assert!(
-		U256::from_little_endian(&coordinate) >= field_prime,
-		"the sentinel is a reduced field element, so it could be somebody's real key"
-	);
 }
 
 /// A core's queue commits to one verifier blob, so pointing it at the wrong one must reject
@@ -344,7 +324,7 @@ fn a_signature_does_not_carry_over_to_another_payload_works() {
 	}
 }
 
-/// A parked core is the one-way end of assignment: same authorizer code, no para. Every ordinary
+/// A parked core has the same authorizer code, but no para. Every ordinary
 /// package must bounce off it — the item-count check has nothing to match — which is what stops a
 /// collator spending a core that no longer runs its para.
 #[test]
@@ -368,64 +348,35 @@ fn a_parked_core_admits_no_ordinary_package_works() {
 	}
 }
 
-/// The sentinel key is what gets a control package onto a parked core, and it is a deliberate
-/// hole: no proof and no signature are checked at all. Pinned so that widening it any further has
-/// to be a conscious edit — and so that the trace says `sudo`, which is the only thing telling
-/// refine to read the payload as control at all.
+/// The former development sentinel must pass the same checks as every other key.
 #[test]
-fn a_sudo_token_reaches_a_parked_core_unsigned_works() {
+fn unsigned_sentinel_errors() {
 	for scheme in [Scheme::Ed25519, Scheme::Sr25519] {
 		let collators = Collators::new(scheme, &["//Alice"]);
-		let parked = collators.config(Vec::new());
-		let control = controlling(1, 0);
-
-		let forged = AuthToken { proof: Vec::new(), key: SUDO_KEY, signature: [0u8; 64] };
-		let trace = authorize_under(scheme, &parked, &forged, &control)
-			.expect("the sentinel key admits a package nobody signed");
-		assert!(
-			trace.sudo,
-			"{scheme:?}: the trace must tell refine to read the payload as control"
-		);
-		assert_eq!(trace.aura.author_key, SUDO_KEY);
-
-		// The hole is exactly this wide: the target-service check still applies, so a parked
-		// core's coretime cannot be spent on some other JAM service.
-		let mut foreign = control;
+		let package = block(1, 0);
+		let forged = AuthToken { proof: Vec::new(), key: [0xff; 32], signature: [0; 64] };
+		assert!(matches!(
+			authorize_under(scheme, &collators.config(Vec::new()), &forged, &package),
+			Err(AuthorizationError::InvalidWorkItemCount)
+		));
+		assert!(matches!(
+			authorize_under(scheme, &collators.config(vec![ParaId::new(0)]), &forged, &package),
+			Err(AuthorizationError::BadAuthorization(_))
+		));
+		// Even membership cannot turn the former sentinel into an unsigned authorization.
+		let mut config = collators.config(vec![ParaId::new(0)]);
+		config.collator_set_root = build_collator_proofs(&[forged.key]).unwrap().0;
+		assert!(matches!(
+			authorize_under(scheme, &config, &forged, &package),
+			Err(AuthorizationError::BadAuthorization(crate::aura::AuthorizationError::BadToken(
+				crate::aura::TokenError::BadCollatorSignature
+			)))
+		));
+		let mut foreign = package;
 		foreign.items[0].service = PARACHAIN_SERVICE_ID + 1;
 		assert!(matches!(
-			authorize_under(scheme, &parked, &forged, &foreign),
+			authorize_under(scheme, &collators.config(vec![ParaId::new(0)]), &forged, &foreign),
 			Err(AuthorizationError::InvalidWorkItemService)
-		));
-	}
-}
-
-/// The sentinel key is the *whole* of the signal: nothing else in a token can switch the sudo
-/// lane on, and nothing else can switch it off. Pinned because the signal used to be a field of
-/// its own — a magic value is easy to compare sloppily, and either mistake is silent.
-#[test]
-fn only_the_sentinel_key_opens_the_sudo_lane_works() {
-	for scheme in [Scheme::Ed25519, Scheme::Sr25519] {
-		let collators = Collators::new(scheme, &["//Alice"]);
-		let control = controlling(1, 0);
-
-		// A sentinel token dressed up as an ordinary one — real proof, real signature — is still
-		// the sudo lane, on a parked core and on an assigned one alike: the key decides before
-		// anything else in the token is looked at.
-		let mut dressed = collators.tokens(&control)[0].clone();
-		dressed.key = SUDO_KEY;
-		for config in [collators.config(Vec::new()), collators.config(vec![ParaId::new(0)])] {
-			let trace = authorize_under(scheme, &config, &dressed, &control)
-				.expect("the sentinel decides, whatever else the token carries");
-			assert!(trace.sudo, "{scheme:?}: a dressed-up sentinel lost its privilege");
-		}
-
-		// One byte off the sentinel is an ordinary collator key, and an ordinary key on a parked
-		// core buys nothing at all.
-		let mut near_miss = dressed;
-		near_miss.key[31] = 0xfe;
-		assert!(matches!(
-			authorize_under(scheme, &collators.config(Vec::new()), &near_miss, &control),
-			Err(AuthorizationError::InvalidWorkItemCount)
 		));
 	}
 }
@@ -453,7 +404,7 @@ fn an_assigned_core_still_counts_items_works() {
 /// Invalid AURA configs are rejected through the adapter, before proof/signature checks.
 #[test]
 fn invalid_aura_config_errors() {
-	use parachain_authorizer::aura::{AuthorizationError as AuraError, ConfigError};
+	use crate::aura::{AuthorizationError as AuraError, ConfigError};
 
 	for scheme in [Scheme::Ed25519, Scheme::Sr25519] {
 		let collators = Collators::new(scheme, &["//Alice"]);

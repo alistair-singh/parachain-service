@@ -13,7 +13,7 @@ pub use cumulus_aura_authorizer::ParaId;
 use jam_types::{AuthTrace, CoreIndex};
 
 pub mod aura;
-pub mod is_authorized;
+mod is_authorized;
 
 /// Run authorization with the signature scheme selected by the verifier program.
 pub fn authorize<S: aura::SignatureVerifier>(core: CoreIndex) -> AuthTrace {
