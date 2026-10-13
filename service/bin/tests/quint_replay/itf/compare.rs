@@ -241,21 +241,29 @@ fn preimage_key(value: &Value, codex: &mut Codex) -> Result<(i128, Hash, u32), S
 enum RequestStatus {
 	Absent,
 	Unprovided,
-	Provided,
-	Unrequested(u32),
-	Rerequested(u32),
+	Provided(u32),
+	Unrequested(u32, u32),
+	Rerequested(u32, u32, u32),
 }
 
 impl RequestStatus {
 	fn from_quint(value: &Value) -> Result<Self, String> {
 		let (tag, value) = variant(value)?;
-		let slot =
-			|| u32::try_from(integer(value)?).map_err(|_| format!("{tag} slot out of range"));
+		let slot = |value: &Value| {
+			u32::try_from(integer(value)?).map_err(|_| format!("{tag} slot out of range"))
+		};
+		let since = |name: &str| slot(field(value, name)?);
 		match tag {
 			"Unprovided" => Ok(Self::Unprovided),
-			"Provided" => Ok(Self::Provided),
-			"Unrequested" => Ok(Self::Unrequested(slot()?)),
-			"Rerequested" => Ok(Self::Rerequested(slot()?)),
+			"Provided" => Ok(Self::Provided(slot(value)?)),
+			"Unrequested" => {
+				Ok(Self::Unrequested(since("providedSince")?, since("unrequestedSince")?))
+			},
+			"Rerequested" => Ok(Self::Rerequested(
+				since("providedSince")?,
+				since("unrequestedSince")?,
+				since("rerequestedSince")?,
+			)),
 			_ => Err(format!("unexpected preimageStatus variant {tag}")),
 		}
 	}
@@ -266,9 +274,9 @@ impl RequestStatus {
 		};
 		match request.0.as_slice() {
 			[] => Self::Unprovided,
-			[_since] => Self::Provided,
-			[_since, until] => Self::Unrequested(*until),
-			[_since, until, _since_again] => Self::Rerequested(*until),
+			[since] => Self::Provided(*since),
+			[since, until] => Self::Unrequested(*since, *until),
+			[since, until, since_again] => Self::Rerequested(*since, *until, *since_again),
 			_ => unreachable!("JAM request history contains at most three slots"),
 		}
 	}
@@ -364,12 +372,17 @@ mod tests {
 	#[test]
 	fn request_status_variants_work() {
 		let unit = serde_json::json!({ "#tup": [] });
-		let slot = serde_json::json!({ "#bigint": "7" });
+		let slot = |n: u32| serde_json::json!({ "#bigint": n.to_string() });
+		let unrequested =
+			serde_json::json!({ "providedSince": slot(5), "unrequestedSince": slot(7) });
+		let rerequested = serde_json::json!({
+			"providedSince": slot(5), "unrequestedSince": slot(7), "rerequestedSince": slot(9)
+		});
 		for (tag, value, expected) in [
 			("Unprovided", &unit, RequestStatus::Unprovided),
-			("Provided", &unit, RequestStatus::Provided),
-			("Unrequested", &slot, RequestStatus::Unrequested(7)),
-			("Rerequested", &slot, RequestStatus::Rerequested(7)),
+			("Provided", &slot(5), RequestStatus::Provided(5)),
+			("Unrequested", &unrequested, RequestStatus::Unrequested(5, 7)),
+			("Rerequested", &rerequested, RequestStatus::Rerequested(5, 7, 9)),
 		] {
 			let value = serde_json::json!({ "tag": tag, "value": value });
 			assert_eq!(RequestStatus::from_quint(&value).unwrap(), expected);
@@ -388,13 +401,16 @@ mod tests {
 		assert_eq!(RequestStatus::from_rust(&storage, hash, 16), RequestStatus::Unprovided);
 		storage.provide(2, MOCK_SERVICE_ID, &blob).unwrap();
 		storage.commit();
-		assert_eq!(RequestStatus::from_rust(&storage, hash, 16), RequestStatus::Provided);
+		assert_eq!(RequestStatus::from_rust(&storage, hash, 16), RequestStatus::Provided(2));
 		storage.forget(3, MOCK_SERVICE_ID, hash, 16).unwrap();
 		storage.commit();
-		assert_eq!(RequestStatus::from_rust(&storage, hash, 16), RequestStatus::Unrequested(3));
+		assert_eq!(RequestStatus::from_rust(&storage, hash, 16), RequestStatus::Unrequested(2, 3));
 		storage.solicit(4, MOCK_SERVICE_ID, hash, 16).unwrap();
 		storage.commit();
-		assert_eq!(RequestStatus::from_rust(&storage, hash, 16), RequestStatus::Rerequested(3));
+		assert_eq!(
+			RequestStatus::from_rust(&storage, hash, 16),
+			RequestStatus::Rerequested(2, 3, 4)
+		);
 	}
 
 	#[test]

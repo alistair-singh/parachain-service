@@ -179,10 +179,10 @@ to the same failure and snapshot checks.
 
 `pre_checkpoint.qnt` covers due assignments, zero and nonzero incoming credits,
 repeated exhaustion, empty invocations, and successful retries. Tests sample five
-positions and both sides of assignment and incoming write calls. Mutation tests
+positions and both sides of the dirty-index read and incoming write calls. Mutation tests
 reject lost credits and retained queue/assignment effects. The generated
 `fuzz::pre_checkpoint_generated_works` regression checks mixed recovery and
-resumption across 20 seeds and 800 transitions. The pending-assignment timing
+resumption across 20 seeds and 800 transitions. The fired-assignment timing
 invariant uses the last completed always-accumulate slot, including across
 external provision steps following rollback; other state checks remain active.
 

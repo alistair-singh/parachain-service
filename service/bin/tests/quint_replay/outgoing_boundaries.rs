@@ -1,6 +1,6 @@
 //! Exact host spendable-balance boundaries, with a Quint compatibility oracle.
 use super::itf::replay;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 #[test]
 fn adjacent_works() {

@@ -1,6 +1,6 @@
 //! Reuse Quint's explicit prefix oracle, replacing its panic with real gas loss.
 use super::itf::replay;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 const FIXTURES: [&str; 3] = [
 	include_str!("../fixtures/quint/panic_recovery/first_checkpoint_works.itf.json"),
@@ -49,11 +49,9 @@ fn insufficient_invocation_gas_errors() {
 #[test]
 fn unlimited_invocation_gas_errors() {
 	let trace = cutoff(0, "replayInvocationGas", json!({"#bigint": "5000000000"}));
-	assert!(
-		replay::document_trace(&trace)
-			.unwrap_err()
-			.contains("expected checkpoint NotEnoughGas")
-	);
+	assert!(replay::document_trace(&trace)
+		.unwrap_err()
+		.contains("expected checkpoint NotEnoughGas"));
 }
 
 #[test]

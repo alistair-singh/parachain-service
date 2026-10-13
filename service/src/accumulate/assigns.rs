@@ -1,8 +1,8 @@
-//! Scheduled JAM `assign`s: caching, inline application, and the
-//! always-accumulate flush (spec §5.1, §7.1).
+//! Scheduled JAM `assign`s: caching, inline application, and the due-assign
+//! flushes (spec §5.1, §7.1).
 
 use crate::{
-	constants::AUTHORIZER_QUEUE_LEN,
+	constants::{AUTHORIZER_QUEUE_LEN, DUE_ASSIGN_FLUSH_BASE_GAS, DUE_ASSIGN_GAS},
 	state::{
 		assigns::{DirtyCores, PendingAssign, PendingAssigns},
 		log::AccumulateLog,
@@ -10,14 +10,15 @@ use crate::{
 };
 use alloc::vec::Vec;
 use jam_pvm_common::{accumulate::assign, ApiError};
-use jam_types::{auth_queue_len, core_count, AuthQueue, AuthorizerHash as JamAuthorizerHash};
+use jam_types::{
+	auth_queue_len, core_count, AuthQueue, AuthorizerHash as JamAuthorizerHash, UnsignedGas,
+};
 use parachain_service_core::types::{AuthorizerHash, CoreIndex, ServiceId, Timeslot};
 
 /// Replay an `AssignCore` message (Coretime only, §4.3). Refine rejects a
 /// malformed queue or an unknown core (§3.3), so either is a defensive no-op
-/// here. An already-due `jam_slot`
-/// applies inline (always-accumulate has already run this block); otherwise the
-/// entry is cached until its slot.
+/// here. An already-due `jam_slot` applies inline; otherwise the entry is cached
+/// until its slot, replacing any entry cached for `core`.
 pub fn schedule(
 	now: Timeslot,
 	service_id: ServiceId,
@@ -59,25 +60,33 @@ pub fn schedule(
 	}
 }
 
-/// The always-accumulate phase (§5.1): flush every due pending assign. Gating
-/// reads only the dirty-core index; the payload is read just for due cores.
+/// How many due assigns `gas` pays for in one flush (§5.1).
+pub fn budget(gas: UnsignedGas) -> usize {
+	(gas.saturating_sub(DUE_ASSIGN_FLUSH_BASE_GAS) / DUE_ASSIGN_GAS) as usize
+}
+
+/// Flush up to `budget` due pending assigns (§5.1): earliest due timeslot first,
+/// then lowest core index, so ones carried over from an earlier block go before
+/// newer ones. Due cores beyond the budget stay cached for a later flush. Gating
+/// reads only the dirty-core index; the payload is read just for fired cores.
 ///
 /// Returns the rejections to record in the Coretime chain's log.
-pub fn apply_due_assigns(now: Timeslot, service_id: ServiceId) -> Vec<AccumulateLog> {
+pub fn apply_due_assigns(
+	now: Timeslot,
+	service_id: ServiceId,
+	budget: usize,
+) -> Vec<AccumulateLog> {
 	let mut logs = Vec::new();
 	let cores = DirtyCores::get();
-	if cores.is_empty() {
+	let mut due: Vec<_> = cores.iter().copied().filter(|(_, jam_slot)| *jam_slot <= now).collect();
+	if due.is_empty() || budget == 0 {
 		return logs;
 	}
-	let mut next = cores.clone();
-	next.retain(|(_, jam_slot)| now < *jam_slot);
-	if next.len() == cores.len() {
-		return logs;
-	}
-	for (core, jam_slot) in cores {
-		if now < jam_slot {
-			continue;
-		}
+	due.sort_unstable_by_key(|&(core, jam_slot)| (jam_slot, core));
+	due.truncate(budget);
+	let mut next = cores;
+	next.retain(|entry| !due.contains(entry));
+	for (core, jam_slot) in due {
 		let entry = PendingAssigns::get(core).expect("dirty index names cached entries; qed");
 		match jam_assign(service_id, core, &entry.queue, entry.assigner) {
 			Ok(()) if fills_directly(entry.queue.len()) => PendingAssigns::remove(core),
@@ -103,8 +112,8 @@ pub fn apply_due_assigns(now: Timeslot, service_id: ServiceId) -> Vec<Accumulate
 			},
 		}
 	}
-	// Flushing the due cores shrinks the index; JAM never rejects it.
-	DirtyCores::set(&next).expect("flushing due cores shrinks the index; qed");
+	// Flushing due cores never grows the index; JAM never rejects it.
+	DirtyCores::set(&next).expect("flushing due cores never grows the index; qed");
 	logs
 }
 

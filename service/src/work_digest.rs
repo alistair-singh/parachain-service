@@ -6,9 +6,9 @@ use parachain_service_core::upward_message::UpwardMessages;
 
 // Shared wire types live in the interface crate; re-exported here since they are
 // part of the digest's shape.
-pub use parachain_service_core::log::{RefineLog, MAX_REPORT_ERROR_PAYLOAD};
-pub use parachain_service_core::types::{
-	HeadData, ParaId, Timeslot, ValidationCodeHash, ValidationCodeRef,
+pub use parachain_service_core::{
+	log::{RefineLog, MAX_REPORT_ERROR_PAYLOAD},
+	types::{HeadData, ParaId, Timeslot, ValidationCodeHash, ValidationCodeRef},
 };
 
 #[cfg(feature = "std")]

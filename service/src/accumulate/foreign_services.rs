@@ -21,7 +21,7 @@
 
 use crate::state::log::{
 	AccumulateLog, ServiceCreationResult, ServiceEjectError, ServiceSolicitError,
-	ServiceStoreError, ServiceSupervisorError,
+	ServiceSupervisorError,
 };
 use alloc::vec::Vec;
 use jam_pvm_common::{
@@ -35,17 +35,6 @@ use parachain_service_core::{types::ServiceId, upward_message::CreateServiceArgs
 /// can actually answer.
 fn exists(service: ServiceId) -> bool {
 	service_info(service).is_some()
-}
-
-/// A `Service`-targeted `forget`, or a `remove_service_storage`. Both share the
-/// same existence-then-supervision precondition and the same log entry.
-pub fn store_op(service: ServiceId, logs: &mut Vec<AccumulateLog>) {
-	let error = if exists(service) {
-		ServiceStoreError::NotSupervised
-	} else {
-		ServiceStoreError::UnknownService
-	};
-	logs.push(AccumulateLog::ServiceStoreFailed { service, error });
 }
 
 /// A `Service`-targeted `solicit`.
@@ -68,7 +57,8 @@ pub fn eject(service: ServiceId, self_id: ServiceId, logs: &mut Vec<AccumulateLo
 	} else {
 		// The host's `eject` needs the target to have zombified itself naming us
 		// as ejector, which a supervisor cannot do on its behalf, so the
-		// unilateral form §6.5 specifies is unreachable regardless of emptiness.
+		// unilateral form §6.5 specifies is unreachable regardless of emptiness,
+		// and so is its `ServiceEjected` report.
 		ServiceEjectError::NotSupervised
 	};
 	logs.push(AccumulateLog::ServiceEjectFailed { service, error });

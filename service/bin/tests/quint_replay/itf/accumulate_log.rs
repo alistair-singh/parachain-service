@@ -3,10 +3,9 @@
 use codec::Compact;
 use parachain_service::state::log::{
 	AccumulateLog, InsufficientBalanceReason, ServiceCreationResult, ServiceEjectError,
-	ServiceSolicitError, ServiceStoreError, ServiceSupervisorError, StateBalanceRejection,
-	TransferError,
+	ServiceSolicitError, ServiceSupervisorError, StateBalanceRejection, TransferError,
 };
-use parachain_service_core::types::ValidationCodeHash;
+use parachain_service_core::{types::ValidationCodeHash, upward_message::Target};
 use serde_json::Value;
 
 use super::{
@@ -107,17 +106,7 @@ pub(super) fn accumulate_log(value: &Value, codex: &mut Codex) -> Result<Accumul
 				error,
 			})
 		},
-		"ServiceStoreFailed" => {
-			let error = match variant(field(value, "error")?)?.0 {
-				"StoreUnknownService" => ServiceStoreError::UnknownService,
-				"StoreNotSupervised" => ServiceStoreError::NotSupervised,
-				other => return Err(format!("unsupported service store error {other}")),
-			};
-			Ok(AccumulateLog::ServiceStoreFailed {
-				service: super::assignments::service_id(field(value, "service")?)?,
-				error,
-			})
-		},
+
 		"ServiceSupervisorFailed" => {
 			let error = match variant(field(value, "error")?)?.0 {
 				"HandoffUnknownService" => ServiceSupervisorError::UnknownService,
@@ -182,7 +171,13 @@ pub(super) fn accumulate_log(value: &Value, codex: &mut Codex) -> Result<Accumul
 			let hash = codex.hash(integer(field(field(value, "hash")?, "hashBytes")?)?, len)?;
 			let due = u32::try_from(integer(field(value, "due")?)?)
 				.map_err(|_| "ForgetAgainAt deadline out of range")?;
-			Ok(AccumulateLog::ForgetAgainAt { hash, len: Compact(len), due })
+			let (kind, target) = variant(field(value, "target")?)?;
+			let target = match kind {
+				"Parachain" => Target::Parachain(para_id(target, codex)?),
+				"Service" => Target::Service(super::assignments::service_id(target)?),
+				other => return Err(format!("unsupported ForgetAgainAt target {other}")),
+			};
+			Ok(AccumulateLog::ForgetAgainAt { target, hash, len: Compact(len), due })
 		},
 		other => Err(format!("unsupported accumulate log event {other}")),
 	}

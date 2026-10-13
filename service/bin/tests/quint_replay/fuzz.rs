@@ -333,7 +333,7 @@ fn outgoing_generated_works() {
 #[test]
 #[ignore = "checks generated service-upgrade coverage; requires Node and Quint 0.32.0"]
 fn service_upgrade_generated_works() {
-	let stream = generator(60, 1, 1, 50).output().expect("stream generator");
+	let stream = generator(328, 1, 1, 50).output().expect("stream generator");
 	assert!(stream.status.success(), "{}", String::from_utf8_lossy(&stream.stderr));
 	let envelope: Value = serde_json::from_slice(&stream.stdout).expect("stream envelope");
 	let trace = &envelope["trace"];
@@ -417,8 +417,8 @@ fn storage_generated_works() {
 				let pair = failure["#tup"].as_array().unwrap();
 				let report = super::itf::replay::integer(&pair[0]).unwrap() as usize;
 				let message = super::itf::replay::integer(&pair[1]).unwrap() as usize;
-				let msg = &frame["lastStepWorkResults"][report]["result"]["value"]["value"]["upwardMessages"]
-					[message];
+				let msg = &frame["lastStepWorkResults"][report]["result"]["value"]["value"]
+					["upwardMessages"][message];
 				let tag = msg["tag"].as_str().unwrap();
 				let kind = if tag == "ParachainSetStateBalance" {
 					let target = &msg["value"]["paraId"];
@@ -427,7 +427,11 @@ fn storage_generated_works() {
 						.unwrap()
 						.iter()
 						.any(|entry| &entry[0] == target);
-					if exists { "balance" } else { "registration" }
+					if exists {
+						"balance"
+					} else {
+						"registration"
+					}
 				} else {
 					tag
 				};
@@ -561,12 +565,8 @@ fn service_preimages_generated_works() {
 		let envelope: Value = serde_json::from_slice(line).unwrap();
 		for state in envelope["trace"]["states"].as_array().unwrap() {
 			let logs = state["svc"]["parachainLog"].to_string();
-			for tag in [
-				"SolicitUnknownService",
-				"SolicitNotSupervised",
-				"StoreUnknownService",
-				"StoreNotSupervised",
-			] {
+			// A `Forget` on an unsupervised service is a silent no-op (§6.5).
+			for tag in ["SolicitUnknownService", "SolicitNotSupervised"] {
 				if logs.contains(&format!("\"tag\":\"{tag}\"")) {
 					refusals.insert(tag);
 				}
@@ -577,28 +577,25 @@ fn service_preimages_generated_works() {
 			panic!("{error}; {}", path.display());
 		}
 	}
-	assert_eq!(refusals.len(), 4, "service preimage refusals: {refusals:?}");
+	assert_eq!(refusals.len(), 2, "service preimage refusals: {refusals:?}");
 }
 
 #[test]
 #[ignore = "checks service management refusals in default replay fuzzing; requires Node and Quint 0.32.0"]
 fn service_management_generated_works() {
 	let mut refusals = std::collections::BTreeSet::new();
-	// These seeds reach both store errors and all three handoff errors.
-	for seed in [1, 3, 9] {
+	// These seeds reach all three handoff errors; storage removal on an
+	// unsupervised service is a silent no-op (§6.5).
+	for seed in [1, 4, 9] {
 		let stream = generator(seed, 1, 1, 50).output().expect("service management generator");
 		assert!(stream.status.success(), "{}", String::from_utf8_lossy(&stream.stderr));
 		for line in stream.stdout.split(|b| *b == b'\n').filter(|line| !line.is_empty()) {
 			let envelope: Value = serde_json::from_slice(line).unwrap();
 			for state in envelope["trace"]["states"].as_array().unwrap() {
 				let logs = state["svc"]["parachainLog"].to_string();
-				for tag in [
-					"HandoffUnknownService",
-					"HandoffUnknownNewSupervisor",
-					"HandoffNotSupervised",
-					"StoreUnknownService",
-					"StoreNotSupervised",
-				] {
+				for tag in
+					["HandoffUnknownService", "HandoffUnknownNewSupervisor", "HandoffNotSupervised"]
+				{
 					if logs.contains(&format!("\"tag\":\"{tag}\"")) {
 						refusals.insert(tag);
 					}
@@ -610,7 +607,7 @@ fn service_management_generated_works() {
 			}
 		}
 	}
-	assert_eq!(refusals.len(), 5, "service management refusals: {refusals:?}");
+	assert_eq!(refusals.len(), 3, "service management refusals: {refusals:?}");
 }
 
 #[test]

@@ -22,7 +22,10 @@ use crate::{
 	},
 };
 use jam_pvm_common::accumulate::{forget, query, solicit, LookupRequestStatus};
-use parachain_service_core::types::{Balance, Hash, ParaId, Timeslot, ASSET_HUB_PARA_ID};
+use parachain_service_core::{
+	types::{Balance, Hash, ParaId, Timeslot, ASSET_HUB_PARA_ID},
+	upward_message::Target,
+};
 
 /// Gray Paper `C_itemdeposit`.
 pub const ITEM_DEPOSIT: u64 = 10;
@@ -285,7 +288,12 @@ pub fn remove_referencer(para_id: ParaId, hash: &Hash, len: u32, now: Timeslot) 
 				.unwrap_or(now + crate::constants::EXPUNGE_PERIOD);
 			RemoveOutcome {
 				retained: true,
-				log: Some(AccumulateLog::ForgetAgainAt { hash: *hash, len: len.into(), due }),
+				log: Some(AccumulateLog::ForgetAgainAt {
+					target: Target::Parachain(para_id),
+					hash: *hash,
+					len: len.into(),
+					due,
+				}),
 			}
 		},
 		F::NotYetUnrequest { success_after } | F::NotYetExpunge { success_after } => {
@@ -293,6 +301,7 @@ pub fn remove_referencer(para_id: ParaId, hash: &Hash, len: u32, now: Timeslot) 
 			RemoveOutcome {
 				retained: true,
 				log: Some(AccumulateLog::ForgetAgainAt {
+					target: Target::Parachain(para_id),
 					hash: *hash,
 					len: len.into(),
 					due: success_after,

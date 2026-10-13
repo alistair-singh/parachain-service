@@ -10,7 +10,7 @@ module service_upgrade_inputs {
   var replayMinAccGas: int
   action keepUpgradeGas = replayMinAccGas' = replayMinAccGas
   pure def upgrade(hash: Hash, acc: int, memo: int): UpwardMessage =
-    UpgradeService({ codeHash: hash, len: ServiceCodeLen, minAccGas: acc, minMemoGas: memo })
+    UpgradeService({ service: None, codeHash: hash, len: ServiceCodeLen, minAccGas: acc, minMemoGas: memo })
   pure def serviceUpgradeMessages: Set[UpwardMessage] = serviceCodes.fold(Set(), (msgs, hash) =>
     msgs.union(Set(
       Solicit({ target: Parachain(AssetHubParaId), hash: hash, len: ServiceCodeLen }),
@@ -18,6 +18,6 @@ module service_upgrade_inputs {
       Forget({ target: Parachain(AssetHubParaId), hash: hash, len: ServiceCodeLen }),
       Forget({ target: Parachain(CoretimeParaId), hash: hash, len: ServiceCodeLen }),
       upgrade(hash, 0, 0), upgrade(hash, 100, 200), upgrade(hash, 123456, 789),
-      UpgradeService({ codeHash: hash, len: ServiceCodeLen + 1, minAccGas: 55, minMemoGas: 66 })
+      UpgradeService({ service: None, codeHash: hash, len: ServiceCodeLen + 1, minAccGas: 55, minMemoGas: 66 })
     )))
 }

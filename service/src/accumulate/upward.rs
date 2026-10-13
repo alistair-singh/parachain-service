@@ -48,8 +48,12 @@ pub fn apply(
 			}
 		},
 
-		UpwardMessage::Forget { target: Target::Service(service), .. } |
-		UpwardMessage::RemoveServiceStorage { service, .. } => foreign_services::store_op(service, logs),
+		// §6.5: a silent no-op unless this service supervises the target, which it
+		// never does on this host (see `foreign_services`). So neither
+		// `ServiceForgetNotRequested` nor `ServiceKeyNotFound` is reachable.
+		UpwardMessage::Forget { target: Target::Service(_), .. } |
+		UpwardMessage::RemoveServiceStorage { .. } |
+		UpwardMessage::UpgradeService { service: Some(_), .. } => {},
 
 		UpwardMessage::Solicit { target: Target::Service(service), .. } => {
 			foreign_services::solicit(service, logs)
@@ -112,7 +116,13 @@ pub fn apply(
 
 		UpwardMessage::CleanUpBucketsUpTo(id) => transfers::clean_up_buckets_up_to(id),
 
-		UpwardMessage::UpgradeService { code_hash, len, min_acc_gas, min_memo_gas } => {
+		UpwardMessage::UpgradeService {
+			service: None,
+			code_hash,
+			len,
+			min_acc_gas,
+			min_memo_gas,
+		} => {
 			// §5.4: forward to JAM `upgrade` only when Asset Hub references the new
 			// code, so no other para can forget it, and its preimage is provided and
 			// still requested. A solicited-but-unprovided or a forgotten one is not

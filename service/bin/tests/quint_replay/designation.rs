@@ -1,6 +1,6 @@
 //! Host designation privilege as a generated invocation input.
 use super::itf::replay;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 #[test]
 fn privilege_changes_works() {

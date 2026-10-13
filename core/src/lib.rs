@@ -31,8 +31,7 @@ pub use constants::MAX_VALIDATION_CODE_SIZE;
 pub use log::{
 	contains_accumulate, latest_accumulate, AccumulateLog, InsufficientBalanceReason, LogEntry,
 	ParachainLog, RefineLog, ServiceCreationResult, ServiceEjectError, ServiceSolicitError,
-	ServiceStoreError, ServiceSupervisorError, StateBalanceRejection, StoredAuthTrace,
-	TransferError,
+	ServiceSupervisorError, StateBalanceRejection, StoredAuthTrace, TransferError,
 };
 pub use para_info::{para_info_key, para_log_key, storage_key, ParaInfo, Tag};
 pub use proof::{verify, ProofError, StateProof};

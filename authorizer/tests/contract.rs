@@ -96,7 +96,8 @@ impl Collators {
 	/// The config a core running `para_ids` under this set is assigned. An empty list is a
 	/// *parked* core: same collator set, same authorizer code, no para.
 	fn config(&self, para_ids: Vec<ParaId>) -> AuthConfig {
-		let (collator_set_root, _) = build_collator_proofs(&self.keys).expect("valid test collator set");
+		let (collator_set_root, _) =
+			build_collator_proofs(&self.keys).expect("valid test collator set");
 		AuthConfig {
 			para_ids,
 			parachain_service: PARACHAIN_SERVICE_ID,

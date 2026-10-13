@@ -17,6 +17,7 @@ module upgrades {
   import state_balance.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/state_balance"
 
   import support.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/tests/support"
+  pure def isProvided(st: RequestStatus): bool = match st { | Provided(_) => true | _ => false }
 
   // CoretimeParaId's active code at `init`.
   pure val codeA: ValidationCodeHash = { vchBytes: 1 }
@@ -63,7 +64,7 @@ module upgrades {
       .then(expectThat(all {
         announcedHashOf(svc.paraInfo(CoretimeParaId)) == Some(b),
         svc.paraInfo(CoretimeParaId).validationCode == Some({ hash: codeA, len: FixedCodeLen }),
-        svc.preimageStatus.get((b.asPreimage(), FixedCodeLen)) == Provided
+        isProvided(svc.preimageStatus.get((b.asPreimage(), FixedCodeLen)))
       }))
       // No deadline: an announcement outlives any number of empty blocks.
       .then(applyHappyPath(CoretimeParaId, codeA, List()))
@@ -106,7 +107,7 @@ module upgrades {
         svc.paraInfo(CoretimeParaId).validationCode == Some({ hash: b, len: FixedCodeLen }),
         svc.paraInfo(CoretimeParaId).announcedUpgrade == None,
         svc.hasReferencer(codeA.asPreimage(), FixedCodeLen, CoretimeParaId),
-        svc.preimageStatus.get(oldKey) == Provided,
+        isProvided(svc.preimageStatus.get(oldKey)),
         not(isValidationCodeOf(svc.paraInfo(CoretimeParaId), codeA.asPreimage(), FixedCodeLen)),
         svc.paraInfo(CoretimeParaId).usedStateBalance ==
           prevSvc.paraInfo(CoretimeParaId).usedStateBalance
@@ -115,7 +116,7 @@ module upgrades {
         Forget({ target: Parachain(CoretimeParaId), hash: codeA.asPreimage(), len: FixedCodeLen }))))
       .then(expectThat(all {
         isUnrequested(svc.preimageStatus.get(oldKey)),
-        hasLog(svc, CoretimeParaId, ForgetAgainAt({
+        hasLog(svc, CoretimeParaId, ForgetAgainAt({ target: Parachain(CoretimeParaId),
           hash: codeA.asPreimage(), len: FixedCodeLen, due: now + ExpungePeriod }))
       }))
   }
@@ -237,7 +238,7 @@ module upgrades {
       .then(applyHappyPath(CoretimeParaId, codeA, List(
         Forget({ target: Parachain(CoretimeParaId), hash: b.asPreimage(), len: FixedCodeLen }))))
       .then(expectThat(all {
-        svc.preimageStatus.get((b.asPreimage(), FixedCodeLen)) == Provided,
+        isProvided(svc.preimageStatus.get((b.asPreimage(), FixedCodeLen))),
         svc.hasReferencer(b.asPreimage(), FixedCodeLen, CoretimeParaId),
         isValidationCodeOf(svc.paraInfo(CoretimeParaId), b.asPreimage(), FixedCodeLen),
         announcedHashOf(svc.paraInfo(CoretimeParaId)) == Some(b),
@@ -252,7 +253,7 @@ module upgrades {
       .then(expectThat(all {
         announcedHashOf(svc.paraInfo(CoretimeParaId)) == Some(c),
         isUnrequested(svc.preimageStatus.get((b.asPreimage(), FixedCodeLen))),
-        hasLog(svc, CoretimeParaId, ForgetAgainAt({
+        hasLog(svc, CoretimeParaId, ForgetAgainAt({ target: Parachain(CoretimeParaId),
           hash: b.asPreimage(), len: FixedCodeLen, due: now + ExpungePeriod }))
       }))
   }
@@ -307,6 +308,7 @@ module upgrades {
       prevSvc' = svc,
       lastStepWorkResults' = out.results,
       lastStepAssigns' = out.assigns,
+      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = out.headRoot,
       logPrunedBelow' = logPrunedBelow
     }

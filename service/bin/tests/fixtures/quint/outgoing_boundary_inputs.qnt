@@ -24,14 +24,16 @@ module outgoing_boundary_inputs {
     val para = AssetHubParaId
     val first = replayWork(svc, para, svc.paraInfo(para).headData,
       activeCodeCandidate(svc, para), 0, now, 0, List())
-    val prefix = hostPrefix(List(first), now + 1, List(), List(UnlimitedGas), allowance)
+    val prefix = hostPrefix(List(first), now + 1, List(), List(UnlimitedGas), allowance,
+      hostAssignBudget(stop))
     val payment = TransferOut({ ...transfer(7, prefix.free + adjacent, 71, 200),
       dest: if (self) ParachainServiceId else MkServiceId(7) })
     // A following spend cannot use a self-payment's not-yet-delivered credit.
     val payments = if (self) List(payment, TransferOut(transfer(7, 1, 73, 200))) else List(payment)
     val second = replayWork(prefix.state, para, prefix.state.paraInfo(para).headData,
       activeCodeCandidate(prefix.state, para), 0, now, 0, payments)
-    val after = hostPrefix(List(first, second), now + 1, List(), List(UnlimitedGas, UnlimitedGas), allowance)
+    val after = hostPrefix(List(first, second), now + 1, List(), List(UnlimitedGas, UnlimitedGas),
+      allowance, hostAssignBudget(stop))
     val fault = replayWork(after.state, para, after.state.paraInfo(para).headData,
       activeCodeCandidate(after.state, para), 0, now, 0,
       (if (self) List(TransferOut({ ...transfer(7, 50, 74, 200), dest: ParachainServiceId }))

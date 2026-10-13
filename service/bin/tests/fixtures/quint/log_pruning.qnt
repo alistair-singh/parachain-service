@@ -10,6 +10,8 @@ module log_pruning {
   import support.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/tests/support"
 
   import refine.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/refine"
+  pure def unrequestedSince(st: RequestStatus): int =
+    match st { | Unrequested(r) => r.unrequestedSince | _ => -1 }
 
   action applyWork(result: WorkExecResult): bool = {
     val out = accumulateBlock(
@@ -24,6 +26,7 @@ module log_pruning {
       prevSvc' = svc,
       lastStepWorkResults' = out.results,
       lastStepAssigns' = out.assigns,
+      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = out.headRoot,
       logPrunedBelow' =
         out.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
@@ -84,16 +87,16 @@ module log_pruning {
         Forget({ target: Parachain(CoretimeParaId), hash: second, len: len }))))
       .then(expectThat(all {
         svc.parachainLog.get(CoretimeParaId) == List(
-          (3, Accumulate(List(ForgetAgainAt({ hash: first, len: len, due: 3 + ExpungePeriod })))),
-          (4, Accumulate(List(ForgetAgainAt({ hash: second, len: len, due: 4 + ExpungePeriod }))))),
-        svc.preimageStatus.get((first, len)) == Unrequested(3),
-        svc.preimageStatus.get((second, len)) == Unrequested(4)
+          (3, Accumulate(List(ForgetAgainAt({ target: Parachain(CoretimeParaId), hash: first, len: len, due: 3 + ExpungePeriod })))),
+          (4, Accumulate(List(ForgetAgainAt({ target: Parachain(CoretimeParaId), hash: second, len: len, due: 4 + ExpungePeriod }))))),
+        unrequestedSince(svc.preimageStatus.get((first, len))) == 3,
+        unrequestedSince(svc.preimageStatus.get((second, len))) == 4
       }))
       .then(candidateAt(4))
       .then(expectThat(all {
         svc.paraInfo(CoretimeParaId).headData == 4,
         svc.parachainLog.get(CoretimeParaId) == List(
-          (4, Accumulate(List(ForgetAgainAt({ hash: second, len: len, due: 4 + ExpungePeriod }))))),
+          (4, Accumulate(List(ForgetAgainAt({ target: Parachain(CoretimeParaId), hash: second, len: len, due: 4 + ExpungePeriod }))))),
         svc.preimageRegistry == prevSvc.preimageRegistry,
         svc.preimageStatus == prevSvc.preimageStatus,
         svc.paraInfo(CoretimeParaId).usedStateBalance == prevSvc.paraInfo(CoretimeParaId).usedStateBalance

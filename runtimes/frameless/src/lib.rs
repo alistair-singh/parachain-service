@@ -400,6 +400,7 @@ mod host {
 			},
 			MockAction::ServiceUpgrade { code_hash, len, min_acc_gas, min_memo_gas } => {
 				UpwardMessage::UpgradeService {
+					service: None,
 					code_hash: *code_hash,
 					len: (*len).into(),
 					min_acc_gas: *min_acc_gas,

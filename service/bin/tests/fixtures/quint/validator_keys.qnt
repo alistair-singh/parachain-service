@@ -19,7 +19,7 @@ module validator_keys_replay {
     svc' = { ...initialState, stagedValidatorKeys: keyList(n, 0) },
     prevSvc' = { ...initialState, stagedValidatorKeys: keyList(n, 0) },
     now' = 0, jamStagingSet' = List(), solicitedSet' = Set(),
-    lastStepWorkResults' = List(), lastStepAssigns' = List(),
+    lastStepWorkResults' = List(), lastStepAssigns' = List(), lastStepAssignBudget' = { flush: 0, end: 0 },
     lastHeadRoot' = None, foreignServices' = Map(), logPrunedBelow' = Map(),
     replayDesignate' = List()
   }
@@ -41,6 +41,7 @@ module validator_keys_replay {
       jamStagingSet' = if (out.staging == List()) jamStagingSet else out.staging,
       solicitedSet' = out.solicited, lastStepWorkResults' = out.results,
       lastStepAssigns' = out.assigns, lastHeadRoot' = out.headRoot,
+      lastStepAssignBudget' = FullAssignBudget,
       foreignServices' = out.foreign,
       logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
     }

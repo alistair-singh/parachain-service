@@ -158,9 +158,15 @@ pub enum UpwardMessage {
 	/// Remove every `incoming_transfers` bucket up
 	/// to and including this bucket id (Asset Hub only, §5.1).
 	CleanUpBucketsUpTo(BucketId),
-	/// Replace the Parachain Service's own
-	/// service code (Asset Hub only, §5.4).
-	UpgradeService { code_hash: Hash, len: Compact<u32>, min_acc_gas: u64, min_memo_gas: u64 },
+	/// Replace the code of `service`, or of the Parachain Service itself when it
+	/// is `None` (Asset Hub only, §5.4).
+	UpgradeService {
+		service: Option<ServiceId>,
+		code_hash: Hash,
+		len: Compact<u32>,
+		min_acc_gas: u64,
+		min_memo_gas: u64,
+	},
 	/// Upsert a parachain's head data (Coretime only, §6).
 	ParachainSetHead { para_id: ParaId, new_head: HeadData },
 	/// Upsert a parachain's validation

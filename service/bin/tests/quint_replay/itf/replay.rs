@@ -433,8 +433,10 @@ fn provision(
 		if hash_raw(&blob) != expected_hash {
 			return Err("codex preimage hash mismatch".into());
 		}
+		// The model records the slot the preimage became available from.
+		let since = bounded_integer::<u32>(variant(status)?.1, "provision slot")?;
 		storage
-			.provide(bounded_integer::<u32>(field(current, "now")?, "now")?, MOCK_SERVICE_ID, &blob)
+			.provide(since, MOCK_SERVICE_ID, &blob)
 			.map_err(|_| "host rejected provisioned preimage")?;
 		storage.commit();
 		debug_assert!(storage

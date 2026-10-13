@@ -7,12 +7,16 @@ use common::*;
 use executor::pj;
 use jam_std_common::{hash_raw, Privileges};
 use jam_types::{AccumulateItem, AuthTrace, CodeHash, FixedVec};
-use parachain_service::state::{
-	assigns::{PendingAssign, PendingAssignCores},
-	log::{AccumulateLog, LogEntry},
-	storage_key, Tag,
+use parachain_service::{
+	constants::{DUE_ASSIGN_FLUSH_BASE_GAS, DUE_ASSIGN_GAS},
+	state::{
+		assigns::{PendingAssign, PendingAssignCores},
+		log::{AccumulateLog, LogEntry},
+		storage_key, Tag,
+	},
 };
 use parachain_service_bin::mock::accumulate_context_with_privileges;
+use std::collections::BTreeSet;
 
 use parachain_service_bin::blob as service;
 use parachain_service_core::{
@@ -69,10 +73,24 @@ fn run_block_with_privileges(
 	slot: u32,
 	privileges: Privileges,
 ) -> (executor::pj::AccumulateOutcome, jam_node::vm::Storage, jam_node::vm::StateMutations) {
+	run_block_with_gas(storage, items, slot, privileges, None)
+}
+
+/// [`run_block_with_privileges`] with an explicit invocation gas pool.
+fn run_block_with_gas(
+	storage: jam_node::vm::Storage,
+	items: Vec<AccumulateItem>,
+	slot: u32,
+	privileges: Privileges,
+	gas: Option<u64>,
+) -> (executor::pj::AccumulateOutcome, jam_node::vm::Storage, jam_node::vm::StateMutations) {
 	let engine = jam_node::vm::Engine::new(Some(jam_node::PvmBackend::Interpreter))
 		.expect("interpreter engine should initialize");
 	let code_hash = CodeHash(hash_raw(&service()));
 	let mut context = accumulate_context_with_privileges(storage, items, slot, privileges);
+	if let Some(gas) = gas {
+		context.gas = gas;
+	}
 	let outcome = pj::accumulate(&engine, code_hash, &mut context)
 		.expect("accumulate should run to completion (not trap)");
 	(outcome, context.storage, context.mutations)
@@ -388,4 +406,84 @@ fn assign_with_correct_privilege_works() {
 	);
 	assert_eq!(dirty_cores(&storage).to_vec(), vec![(CORE, NOW + 80)]);
 	assert!(ct_accumulate_logs(&storage).is_empty());
+}
+
+/// Cache an assign of a one-hash queue for each `(core, jam_slot)`.
+fn armed(assigns: &[(CoreIndex, u32)]) -> jam_node::vm::Storage {
+	let msgs = assigns
+		.iter()
+		.map(|&(core, jam_slot)| UpwardMessage::AssignCore {
+			core,
+			queue: vec![HASH_A],
+			new_assigner: None,
+			jam_slot,
+		})
+		.collect();
+	let digest = ok_digest(CORETIME_PARA_ID, CT_CODE, b"ct-genesis", b"ct-1", msgs, 0);
+	accumulate_block(ct_storage(), vec![work_item(&digest)], NOW).1
+}
+
+/// A pool whose always-accumulate allowance pays for exactly `n` due assigns
+/// on top of `declared`.
+fn pool_for(n: u64, declared: u64) -> u64 {
+	declared + DUE_ASSIGN_FLUSH_BASE_GAS + (n + 1) * DUE_ASSIGN_GAS - 1
+}
+
+#[test]
+fn due_assigns_beyond_allowance_carried_over_works() {
+	// §5.1: each flush applies only the due assigns its gas pays for, earliest
+	// due timeslot first and then lowest core. The allowance pays for one, and
+	// what is left of it at the end of the invocation for one more; the rest is
+	// carried over to the next block.
+	let storage = armed(&[(3, NOW + 8), (4, NOW + 5), (5, NOW + 2), (6, NOW + 5)]);
+
+	let (_, storage, mutations) = run_block_with_gas(
+		storage,
+		vec![],
+		NOW + 10,
+		privileges_with_assign(SVC),
+		Some(pool_for(1, 0)),
+	);
+
+	assert_eq!(mutations.auths.keys().copied().collect::<BTreeSet<_>>(), BTreeSet::from([4, 5]));
+	assert_eq!(dirty_cores(&storage).to_vec(), vec![(3, NOW + 8), (6, NOW + 5)]);
+
+	let (_, storage, mutations) =
+		run_block_with_privileges(storage, vec![], NOW + 11, privileges_with_assign(SVC));
+
+	assert_eq!(mutations.auths.keys().copied().collect::<BTreeSet<_>>(), BTreeSet::from([3, 6]));
+	assert!(dirty_cores(&storage).is_empty());
+}
+
+#[test]
+fn due_assigns_applied_after_packages_works() {
+	// §5.1: due assigns the allowance cannot pay for are applied at the end of
+	// the invocation from the gas the work packages left, so a rejection is
+	// logged after the same block's Coretime package.
+	let storage = armed(&[(CORE, NOW + 10)]);
+	let other = UpwardMessage::AssignCore {
+		core: CORE + 1,
+		queue: vec![HASH_B],
+		new_assigner: None,
+		jam_slot: NOW + 10,
+	};
+	let digest = ok_digest(CORETIME_PARA_ID, CT_CODE, b"ct-1", b"ct-2", vec![other], 0);
+
+	let (_, storage, _) = run_block_with_gas(
+		storage,
+		vec![work_item(&digest)],
+		NOW + 10,
+		privileges_with_assign(99),
+		Some(pool_for(0, REPORT_GAS)),
+	);
+
+	let rejected = |core| {
+		(
+			NOW + 10,
+			LogEntry::Accumulate { entries: vec![AccumulateLog::CoreNotAssignable { core }] },
+		)
+	};
+	let log = para_log(&storage, CORETIME_PARA_ID);
+	assert_eq!(log[log.len().saturating_sub(2)..], [rejected(CORE + 1), rejected(CORE)]);
+	assert!(dirty_cores(&storage).is_empty());
 }

@@ -1,15 +1,16 @@
 //! Supervisor-driven operations on a supervised JAM service (§6.5).
 //!
-//! The vendored host is Gray Paper 0.7.2 and has no supervisor relation, so five
-//! of the six operations can only ever refuse; `create_service` really runs. See
-//! DECISIONS.md D-13.
+//! The vendored host is Gray Paper 0.7.2 and has no supervisor relation, so the
+//! operations on a supervised service either refuse or, where §6.5 makes an
+//! unsupervised target a silent no-op, do nothing; `create_service` really runs.
+//! See DECISIONS.md D-13.
 
 mod common;
 
 use common::*;
 use parachain_service::state::log::{
 	AccumulateLog, LogEntry, ServiceCreationResult, ServiceEjectError, ServiceSolicitError,
-	ServiceStoreError, ServiceSupervisorError,
+	ServiceSupervisorError,
 };
 use parachain_service_core::{
 	types::{ParaId, ServiceId, ASSET_HUB_PARA_ID},
@@ -61,6 +62,13 @@ fn all_ops(service: ServiceId) -> Vec<UpwardMessage> {
 		UpwardMessage::RemoveServiceStorage { service, key: vec![1, 2] },
 		UpwardMessage::EjectService { service },
 		UpwardMessage::SetServiceSupervisor { service, new_supervisor: service },
+		UpwardMessage::UpgradeService {
+			service: Some(service),
+			code_hash: [9; 32],
+			len: 1024.into(),
+			min_acc_gas: 0,
+			min_memo_gas: 0,
+		},
 	]
 }
 
@@ -90,17 +98,9 @@ fn unknown_service_errors() {
 	assert_eq!(
 		logs,
 		vec![
-			AccumulateLog::ServiceStoreFailed {
-				service: GHOST,
-				error: ServiceStoreError::UnknownService
-			},
 			AccumulateLog::ServiceSolicitFailed {
 				service: GHOST,
 				error: ServiceSolicitError::UnknownService
-			},
-			AccumulateLog::ServiceStoreFailed {
-				service: GHOST,
-				error: ServiceStoreError::UnknownService
 			},
 			AccumulateLog::ServiceEjectFailed {
 				service: GHOST,
@@ -122,17 +122,9 @@ fn known_but_unsupervised_errors() {
 	assert_eq!(
 		logs,
 		vec![
-			AccumulateLog::ServiceStoreFailed {
-				service: OTHER,
-				error: ServiceStoreError::NotSupervised
-			},
 			AccumulateLog::ServiceSolicitFailed {
 				service: OTHER,
 				error: ServiceSolicitError::NotSupervised
-			},
-			AccumulateLog::ServiceStoreFailed {
-				service: OTHER,
-				error: ServiceStoreError::NotSupervised
 			},
 			AccumulateLog::ServiceEjectFailed {
 				service: OTHER,

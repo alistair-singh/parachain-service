@@ -1,6 +1,6 @@
 //! Deferred self-payments debit immediately and receive scheduler credit later.
 use super::itf::replay;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 #[test]
 fn ordered_works() {
@@ -20,10 +20,9 @@ fn immediate_credit_errors() {
 	.unwrap();
 	// At the exact boundary, an immediate self-credit would incorrectly fund
 	// this second payment within the same invocation.
-	let message =
-		trace["states"][2]["lastStepWorkResults"][1]["result"]["value"]["value"]["upwardMessages"]
-			[1]["value"]
-			.clone();
+	let message = trace["states"][2]["lastStepWorkResults"][1]["result"]["value"]["value"]
+		["upwardMessages"][1]["value"]
+		.clone();
 	trace["states"][2]["replayTransfers"].as_array_mut().unwrap().push(message);
 	assert!(replay::document_trace(&trace).unwrap_err().contains("replayTransfers differs"));
 }

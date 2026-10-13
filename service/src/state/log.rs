@@ -13,13 +13,12 @@ use crate::{
 };
 use alloc::vec::Vec;
 use codec::Encode;
-use parachain_service_core::types::ParaId;
-use parachain_service_core::types::Timeslot;
+use parachain_service_core::types::{ParaId, Timeslot};
 
 pub use parachain_service_core::log::{
 	AccumulateLog, InsufficientBalanceReason, LogEntry, ParachainLog, RefineLog,
-	ServiceCreationResult, ServiceEjectError, ServiceSolicitError, ServiceStoreError,
-	ServiceSupervisorError, StateBalanceRejection, StoredAuthTrace, TransferError,
+	ServiceCreationResult, ServiceEjectError, ServiceSolicitError, ServiceSupervisorError,
+	StateBalanceRejection, StoredAuthTrace, TransferError,
 };
 
 /// Truncate a work-report auth trace to the stored cap (§3.3).

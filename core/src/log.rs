@@ -15,7 +15,10 @@ use alloc::vec::Vec;
 use bounded_collections::{BoundedVec, ConstU32};
 use codec::{Compact, Decode, Encode};
 
-use crate::types::{Balance, CoreIndex, Hash, ParaId, ServiceId, Timeslot, ValidationCodeHash};
+use crate::{
+	types::{Balance, CoreIndex, Hash, ParaId, ServiceId, Timeslot, ValidationCodeHash},
+	upward_message::Target,
+};
 
 /// §3.1 — per-parachain log byte budget (exact encoded size of all entries).
 pub const PARACHAIN_LOG_BYTE_CAP: usize = 64 * 1024;
@@ -59,19 +62,6 @@ pub enum TransferError {
 	/// balance is too small or because the transfer would leave it below its
 	/// threshold balance.
 	InsufficientServiceBalance,
-}
-
-/// Why a `forget` or `remove_service_storage` against a supervised service's
-/// store failed (spec §6.5).
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum ServiceStoreError {
-	/// The named service does not exist.
-	UnknownService,
-	/// The Parachain Service is not its effective supervisor.
-	NotSupervised,
-	/// A `forget` naming a preimage the target never requested. JAM's transition
-	/// has no clause for an absent request, so it refuses.
-	NotRequested,
 }
 
 /// Why a `Service`-targeted `solicit` failed (spec §6.5).
@@ -218,14 +208,20 @@ pub enum AccumulateLog {
 	TransferFailed { id: Compact<u64>, error: TransferError },
 	/// A `forget` removed the last referencer without expunging the preimage;
 	/// `forget` again once strictly past `due`. Spec §6.1.
-	ForgetAgainAt { hash: Hash, len: Compact<u32>, due: Timeslot },
-	/// A `forget` or `remove_service_storage` on a supervised service's store
-	/// failed. Spec §6.5.
-	ServiceStoreFailed { service: ServiceId, error: ServiceStoreError },
+	ForgetAgainAt { target: Target, hash: Hash, len: Compact<u32>, due: Timeslot },
+	/// A `Service`-targeted `forget` named a preimage the service never
+	/// requested. Spec §6.5.
+	ServiceForgetNotRequested { service: ServiceId, hash: Hash, len: Compact<u32> },
+	/// A `remove_service_storage` named a key the service does not hold;
+	/// `key_hash` is the hash of that key. Spec §6.5.
+	ServiceKeyNotFound { service: ServiceId, key_hash: Hash },
 	/// A `Service`-targeted `solicit` failed. Spec §6.5.
 	ServiceSolicitFailed { service: ServiceId, error: ServiceSolicitError },
 	/// An `eject_service` failed. Spec §6.5.
 	ServiceEjectFailed { service: ServiceId, error: ServiceEjectError },
+	/// An `eject_service` succeeded, crediting the service's regular plus
+	/// supervisor balance back. Spec §6.5.
+	ServiceEjected { service: ServiceId, credited: Compact<Balance> },
 	/// A `set_service_supervisor` failed. Spec §6.5.
 	ServiceSupervisorFailed { service: ServiceId, error: ServiceSupervisorError },
 	/// Announces a `create_service` outcome, echoing the caller's own `id`. Spec §6.5.

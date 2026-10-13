@@ -212,27 +212,29 @@ mod tests {
 		let before = initial_privileges(fresh_storage(|_| {}));
 		let handed_away = json!({"lastStepAssigns": [call(2, 7, 9)]});
 		let mut handoff = StateMutations::new(0);
-		handoff.auths.insert(2, jam_types::AuthQueue::new(Codex::authorizer_hash(9).unwrap()));
+		handoff
+			.auths
+			.insert(2, jam_types::AuthQueue::new(Codex::authorizer_hash(9).unwrap()));
 		let mut foreign = before.clone();
 		foreign.assign[2] = 7;
 		handoff.privileges = Some(foreign.clone());
 		compare(&handed_away, &handoff, &before, 1).unwrap();
 
 		// A rejection in the next frame has no assignment or privilege effect.
-		compare(&json!({"lastStepAssigns": []}), &StateMutations::new(0), &foreign, 2)
-			.unwrap();
+		compare(&json!({"lastStepAssigns": []}), &StateMutations::new(0), &foreign, 2).unwrap();
 
 		// Even matching (but impossible) host effects must not make a model
 		// success after handoff pass, either in this frame or the next one.
 		let mut reclaimed = StateMutations::new(0);
-		reclaimed.auths.insert(2, jam_types::AuthQueue::new(Codex::authorizer_hash(10).unwrap()));
+		reclaimed
+			.auths
+			.insert(2, jam_types::AuthQueue::new(Codex::authorizer_hash(10).unwrap()));
 		reclaimed.privileges = Some(before.clone());
-		for (calls, privileges) in [
-			(json!([call(2, 7, 9), call(2, 1, 10)]), &before),
-			(json!([call(2, 1, 10)]), &foreign),
-		] {
-			let error = compare(&json!({"lastStepAssigns": calls}), &reclaimed, privileges, 2)
-				.unwrap_err();
+		for (calls, privileges) in
+			[(json!([call(2, 7, 9), call(2, 1, 10)]), &before), (json!([call(2, 1, 10)]), &foreign)]
+		{
+			let error =
+				compare(&json!({"lastStepAssigns": calls}), &reclaimed, privileges, 2).unwrap_err();
 			assert!(error.contains("control was handed away"), "{error}");
 		}
 	}

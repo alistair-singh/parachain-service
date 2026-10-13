@@ -52,7 +52,13 @@ pub fn message(value: &Value, codex: &mut Codex) -> Result<UpwardMessage, String
 	} else {
 		codex.hash(hash, len)?
 	};
+	let service = match variant(field(value, "service")?)? {
+		("None", _) => None,
+		("Some", service) => Some(super::assignments::service_id(service)?),
+		(tag, _) => return Err(format!("unsupported UpgradeService target {tag}")),
+	};
 	Ok(UpwardMessage::UpgradeService {
+		service,
 		code_hash,
 		len: Compact(len),
 		min_acc_gas: bounded_integer(field(value, "minAccGas")?, "minimum accumulate gas")?,
@@ -141,7 +147,7 @@ mod tests {
 	#[test]
 	fn wrong_length_preserves_hash_works() {
 		let mut codex = Codex::default();
-		let value = json!({"codeHash":{"hashBytes":n(9001)},"len":n(CODE_LEN as i128 + 1),
+		let value = json!({"service":{"tag":"None","value":{"#tup":[]}},"codeHash":{"hashBytes":n(9001)},"len":n(CODE_LEN as i128 + 1),
 			"minAccGas":n(1),"minMemoGas":n(2)});
 		let UpwardMessage::UpgradeService { code_hash, len, .. } =
 			message(&value, &mut codex).unwrap()
@@ -155,7 +161,7 @@ mod tests {
 
 	#[test]
 	fn malformed_upgrade_values_errors() {
-		let original = json!({"codeHash":{"hashBytes":n(9001)},"len":n(CODE_LEN.into()),
+		let original = json!({"service":{"tag":"None","value":{"#tup":[]}},"codeHash":{"hashBytes":n(9001)},"len":n(CODE_LEN.into()),
 			"minAccGas":n(1),"minMemoGas":n(2)});
 		for (path, value) in [
 			("/len", -1),
