@@ -49,6 +49,14 @@ pub fn para_info_key(para_id: ParaId) -> Vec<u8> {
 	storage_key(Tag::Parachains, &para_id)
 }
 
+/// Storage key of a para's `parachain_log` entry in the parachain service.
+///
+/// A parachain's validation code reads its own log back through the JAM state
+/// proof under this key; the service writes it under the same one (spec §5.1).
+pub fn para_log_key(para_id: ParaId) -> Vec<u8> {
+	storage_key(Tag::ParachainLog, &para_id)
+}
+
 /// Per-parachain metadata (spec §3.1).
 ///
 /// Mirrors `service::state::para_info::ParaInfo`. Field order, types, and codec

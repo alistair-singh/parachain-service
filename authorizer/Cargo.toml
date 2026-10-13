@@ -22,9 +22,6 @@ codec = { workspace = true }
 # Enables smaller compression code in the SDK hashing dependency to fit the guest size limit.
 blake2b_simd = { workspace = true, features = ["uninline_portable"] }
 
-[target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
-sp-io = { workspace = true, features = ["disable_allocator", "disable_panic_handler"] }
-
 # The scheme crates depend on this library; Cargo permits this cycle for tests.
 [dev-dependencies]
 primitive-types = { workspace = true }

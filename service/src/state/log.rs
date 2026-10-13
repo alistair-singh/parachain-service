@@ -1,6 +1,8 @@
-//! Per-parachain log (spec §3.1, §5.1): entry types, exact-size accounting,
-//! eviction, and pruning.
+//! Per-parachain log (spec §3.1, §5.1): eviction, pruning and storage accessors.
 //!
+//! The entry types and their sizing constants live in `parachain-service-core::log`,
+//! because a parachain's own validation code decodes them from its JAM state proof —
+//! the feedback channel of §5.1 — and both sides must agree on every discriminant.
 //! Unlike the Quint model's approximated `logEntrySize`, sizes here are the
 //! exact SCALE `encoded_size()` of the stored value, so the 64 KiB cap is
 //! enforced against real bytes.
@@ -8,192 +10,17 @@
 use crate::{
 	constants::{PARACHAIN_LOG_BYTE_CAP, STORED_AUTH_TRACE_CAP},
 	state::{self, StorageFull, Tag},
-	work_digest::RefineLog,
 };
 use alloc::vec::Vec;
-use bounded_collections::{BoundedVec, ConstU32};
-use codec::{Compact, Decode, Encode};
-use parachain_service_core::types::{
-	Balance, CoreIndex, Hash, ParaId, ServiceId, Timeslot, ValidationCodeHash,
+use codec::Encode;
+use parachain_service_core::types::ParaId;
+use parachain_service_core::types::Timeslot;
+
+pub use parachain_service_core::log::{
+	AccumulateLog, InsufficientBalanceReason, LogEntry, ParachainLog, RefineLog,
+	ServiceCreationResult, ServiceEjectError, ServiceSolicitError, ServiceStoreError,
+	ServiceSupervisorError, StateBalanceRejection, StoredAuthTrace, TransferError,
 };
-
-/// Why a state-balance reservation failed (spec §3.1, §6.1).
-///
-/// Covers solicit/preimage and `kv_set` growth. Baseline-covered writes have
-/// no per-write allowance check and do not emit this log on host failure.
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum InsufficientBalanceReason {
-	/// A `solicit` of the preimage with `hash` and `len`.
-	Solicit { hash: Hash, len: Compact<u32> },
-	/// A `kv_set(key, value)` write. Only the hash of `key` is recorded so an
-	/// arbitrarily large user key cannot inflate `parachain_log`.
-	SetKV { key_hash: Hash },
-}
-
-/// Why a JAM `transfer` replaying a `TransferOut` failed (spec §5.1 step 6).
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum TransferError {
-	/// `source` is not a known service.
-	UnknownSource,
-	/// `dest` is not a known service.
-	UnknownDestination,
-	/// The service is not `source`'s effective supervisor; only its own regular
-	/// balance is exempt. Takes precedence over `DestinationNotSupervised`.
-	SourceNotSupervised,
-	/// A plain move to another service needs the service to be `dest`'s effective
-	/// supervisor. Also covers an identity write (`source == dest` with both
-	/// selectors equal).
-	DestinationNotSupervised,
-	/// The supplied gas is below `dest`'s `min_memo_gas`.
-	GasBelowDestinationMinimum,
-	/// The `source` service cannot cover `amount`, either because the debited
-	/// balance is too small or because the transfer would leave it below its
-	/// threshold balance.
-	InsufficientServiceBalance,
-}
-
-/// Why a `forget` or `remove_service_storage` against a supervised service's
-/// store failed (spec §6.5).
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum ServiceStoreError {
-	/// The named service does not exist.
-	UnknownService,
-	/// The Parachain Service is not its effective supervisor.
-	NotSupervised,
-	/// A `forget` naming a preimage the target never requested. JAM's transition
-	/// has no clause for an absent request, so it refuses.
-	NotRequested,
-}
-
-/// Why a `Service`-targeted `solicit` failed (spec §6.5).
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum ServiceSolicitError {
-	/// The named service does not exist.
-	UnknownService,
-	/// The Parachain Service is not its effective supervisor.
-	NotSupervised,
-	/// The request would leave the target below its threshold balance.
-	TargetCannotAfford,
-	/// The target already has a live request for this preimage that is not
-	/// awaiting re-solicitation.
-	AlreadySolicited,
-}
-
-/// Why an `eject_service` failed (spec §6.5).
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum ServiceEjectError {
-	/// The named service does not exist.
-	UnknownService,
-	/// The Parachain Service is not its effective supervisor.
-	NotSupervised,
-	/// The service still holds storage or preimage requests.
-	NotEmpty,
-	/// The service was created in this timeslot.
-	CreatedThisSlot,
-	/// The Parachain Service named itself.
-	TargetIsSelf,
-}
-
-/// Why a `set_service_supervisor` failed (spec §6.5).
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum ServiceSupervisorError {
-	/// The named service does not exist.
-	UnknownService,
-	/// The proposed new supervisor does not exist.
-	UnknownNewSupervisor,
-	/// The Parachain Service is not its effective supervisor.
-	NotSupervised,
-}
-
-/// How a `create_service` turned out (spec §6.5). The only §6.5 operation that
-/// logs a success, since the caller needs the assigned id announced to it.
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum ServiceCreationResult {
-	/// Succeeded, carrying the id JAM assigned.
-	Created(ServiceId),
-	/// The Parachain Service cannot fund the new service.
-	CannotAfford,
-	/// A `desired_id` in the protected range that is already in use.
-	IdTaken,
-}
-
-/// Why a Coretime state-balance update was rejected (§6.1).
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum StateBalanceRejection {
-	BelowUsed { current_total: Compact<Balance>, current_used: Compact<Balance> },
-	ParachainIsDeregistering,
-}
-
-/// Events recorded while Accumulating for a parachain (spec §3.1).
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum AccumulateLog {
-	/// Available state balance insufficient for the operation. Spec §6.1.
-	InsufficientStateBalance { reason: InsufficientBalanceReason },
-	/// `ParachainSetStateBalance` rejected for the named target and reason.
-	StateBalanceUpdateRejected {
-		para_id: ParaId,
-		attempted: Compact<Balance>,
-		reason: StateBalanceRejection,
-	},
-	/// JAM `designate` rejected the assembled key set, because its length is not
-	/// in `valcount` or this service is not the delegator. The staging buffer is
-	/// cleared regardless. Spec §5.3.
-	DesignateRejected { len: Compact<u32> },
-	/// A `set_validator_keys` chunk would overflow `staged_validator_keys`;
-	/// the append is rejected. Spec §5.3.
-	StagedValidatorKeysOverflow,
-	/// An `UpgradeService` whose code Asset Hub does not reference, or that is
-	/// not available for lookup. Spec §5.4.
-	ServiceUpgradePreimageMissing { code_hash: Hash },
-	/// An `Announcement` whose code is not usable (§5.2).
-	CodeUpgradeNotAvailable { hash: Hash, len: Compact<u32> },
-	/// An `Apply` that does not match the standing announcement (§5.2).
-	CodeUpgradeNotAnnounced { hash: Hash, len: Compact<u32> },
-	/// A `Forget` naming code in use: the para's active or announced validation
-	/// code (§5.2), or for Asset Hub the Parachain Service's active code (§5.4).
-	CanNotRemoveCode { hash: Hash, len: Compact<u32> },
-	/// JAM rejected an `assign` because this service is no longer the core's
-	/// assigner (§7.1).
-	CoreNotAssignable { core: CoreIndex },
-	/// The JAM `transfer` replaying a `TransferOut` failed. `id` is the
-	/// caller-supplied identifier, echoed back so the parachain can match the
-	/// failure to its own record. Spec §5.1 step 6.
-	TransferFailed { id: Compact<u64>, error: TransferError },
-	/// A `forget` removed the last referencer without expunging the preimage;
-	/// `forget` again once strictly past `due`. Spec §6.1.
-	ForgetAgainAt { hash: Hash, len: Compact<u32>, due: Timeslot },
-	/// A `forget` or `remove_service_storage` on a supervised service's store
-	/// failed. Spec §6.5.
-	ServiceStoreFailed { service: ServiceId, error: ServiceStoreError },
-	/// A `Service`-targeted `solicit` failed. Spec §6.5.
-	ServiceSolicitFailed { service: ServiceId, error: ServiceSolicitError },
-	/// An `eject_service` failed. Spec §6.5.
-	ServiceEjectFailed { service: ServiceId, error: ServiceEjectError },
-	/// A `set_service_supervisor` failed. Spec §6.5.
-	ServiceSupervisorFailed { service: ServiceId, error: ServiceSupervisorError },
-	/// Announces a `create_service` outcome, echoing the caller's own `id`. Spec §6.5.
-	ServiceCreation { id: Compact<u64>, result: ServiceCreationResult },
-	/// `parachain_clean_up` rejected: state held beyond baseline + codes. Spec §6.4.
-	TooMuchStateHeld,
-	/// The candidate's code does not match the active code. §5.1.
-	/// Appended to preserve the SCALE indices of existing events.
-	InvalidCodeHash { hash: ValidationCodeHash },
-}
-
-/// The auth trace stored with a Refine failure, truncated to 256 bytes (§3.3).
-pub type StoredAuthTrace = BoundedVec<u8, ConstU32<{ STORED_AUTH_TRACE_CAP as u32 }>>;
-
-/// One log entry (spec §3.1). Each carries its timeslot inline in the log vector.
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
-pub enum LogEntry {
-	/// What went wrong during Refine, with the work-report's auth trace.
-	Refine { error: RefineLog, auth_trace: StoredAuthTrace },
-	/// Events recorded while Accumulating a work digest.
-	Accumulate { entries: Vec<AccumulateLog> },
-}
-
-/// A parachain's full log value: `(timeslot, entry)` pairs in append order.
-pub type ParachainLog = Vec<(Timeslot, LogEntry)>;
 
 /// Truncate a work-report auth trace to the stored cap (§3.3).
 pub fn truncate_auth_trace(trace: &[u8]) -> StoredAuthTrace {

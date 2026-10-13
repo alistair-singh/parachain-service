@@ -13,6 +13,7 @@ pub mod authorizer;
 pub mod candidate;
 pub mod constants;
 pub mod host_call;
+pub mod log;
 pub mod para_info;
 pub mod proof;
 pub mod refine;
@@ -27,7 +28,13 @@ pub mod host;
 
 // Flat re-exports callers used to get from jam-state-helpers.
 pub use constants::MAX_VALIDATION_CODE_SIZE;
-pub use para_info::{para_info_key, storage_key, ParaInfo, Tag};
+pub use log::{
+	contains_accumulate, latest_accumulate, AccumulateLog, InsufficientBalanceReason, LogEntry,
+	ParachainLog, RefineLog, ServiceCreationResult, ServiceEjectError, ServiceSolicitError,
+	ServiceStoreError, ServiceSupervisorError, StateBalanceRejection, StoredAuthTrace,
+	TransferError,
+};
+pub use para_info::{para_info_key, para_log_key, storage_key, ParaInfo, Tag};
 pub use proof::{verify, ProofError, StateProof};
 pub use state_key::{service_request_state_key, service_value_state_key};
 pub use upward_message::CodeUpgradePhase;

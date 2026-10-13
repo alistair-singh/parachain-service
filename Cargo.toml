@@ -101,7 +101,9 @@ thiserror = "2.0"
 # (single SDK source).
 executor = { path = "tools/executor" }
 tiny-keccak = { version = "2.0.2", default-features = false, features = ["keccak"] }
-sp-crypto-hashing = { path = "vendor/polkadot-sdk-companion/substrate/primitives/crypto/hashing", default-features = false }
+# The published crate (same source as the companion's copy): a consumer with its own polkadot-sdk
+# tree (cumulus) cannot hold a second path crate named `sp-crypto-hashing`.
+sp-crypto-hashing = { version = "0.1.0", default-features = false }
 sp-io = { path = "vendor/polkadot-sdk-companion/substrate/primitives/io", default-features = false }
 
 # The service uses the newer vendored Polkajam API; the standalone AURA crate

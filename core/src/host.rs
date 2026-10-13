@@ -58,7 +58,12 @@ pub fn solicit(target: Target, hash: [u8; 32], len: u32) {
 }
 
 /// Append one upward message to the work digest.
-fn send_upward_message(msg: &[u8]) {
+///
+/// The message is the SCALE encoding of one `UpwardMessage` (§3.3). Public because a
+/// parachain runtime emits messages this crate's own wrappers do not cover — the
+/// Coretime chain's `AssignCore` is the first — and every emitter must encode into the
+/// same single stream the service replays in emission order.
+pub fn send_upward_message(msg: &[u8]) {
 	unsafe { send_upward_message_raw(msg.as_ptr() as u32, msg.len() as u32) }
 }
 
