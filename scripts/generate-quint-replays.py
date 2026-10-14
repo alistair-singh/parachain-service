@@ -15,7 +15,7 @@ def main():
     version = subprocess.check_output(["quint", "--version"], text=True).strip()
     if version != "0.32.0":
         raise SystemExit(f"Expected Quint 0.32.0, found {version}")
-    for source in ["combined", "refine_fuzz", "refine_errors", "blocks", "upgrades", "log_pruning", "kv", "balances", "lifecycle", "assignments", "validator_keys", "designation", "outgoing", "outgoing_boundaries", "self_payments", "service_upgrades", "mixed", "gas", "storage", "storage_recovery", "code_storage", "host_mixed", "services", "service_preimages", "service_management", "panic_recovery", "pre_checkpoint", "final_checkpoint"]:
+    for source in ["combined", "host_calls", "refine_fuzz", "refine_errors", "blocks", "upgrades", "log_pruning", "kv", "balances", "lifecycle", "assignments", "validator_keys", "designation", "outgoing", "outgoing_boundaries", "self_payments", "service_upgrades", "mixed", "gas", "storage", "storage_recovery", "code_storage", "host_mixed", "services", "service_preimages", "service_management", "panic_recovery", "pre_checkpoint", "final_checkpoint"]:
         generate(source)
 
 
@@ -43,8 +43,10 @@ def generate(source):
             trace = json.loads(path.read_text())
             # Metadata has timestamps and bare JSON integers, which the Rust
             # ITF value decoder rejects. Preserve every generated state value.
-            if source == "combined":
+            if source in ("combined", "host_calls"):
                 trace["replayRefineRequired"] = True
+            if "replayHostCalls" in trace["states"][0]:
+                trace["replayHostCallsRequired"] = True
             trace.pop("#meta", None)
             trace["vars"].sort()
             for state in trace["states"]:

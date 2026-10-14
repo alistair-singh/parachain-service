@@ -57,6 +57,7 @@ async function main() {
     // Strip only ITF metadata; preserve all generated model values.
     // The default campaign must never silently fall back to supplied digests.
     if (path.basename(input) === 'fuzz.qnt') trace.replayRefineRequired = true;
+    if ('replayHostCalls' in trace.states[0]) trace.replayHostCallsRequired = true;
     delete trace['#meta'];
     for (const state of trace.states) delete state['#meta'];
     const line = JSON.stringify({ seed: seed.toString(), steps, version,

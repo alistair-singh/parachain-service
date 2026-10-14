@@ -1,4 +1,5 @@
 module host_invocation {
+  import host_call_inputs.* from "./host_call_inputs"
   import refine_inputs.* from "./refine_inputs"
   import foreign_services.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/foreign_services"
   import types.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/types"
@@ -18,7 +19,7 @@ module host_invocation {
   import service_inputs.* from "./service_inputs"
   import host_sizes.* from "./host_sizes"
   import preimage_history.* from "./preimage_history"
-  type HostAcc = { acc: AccumulateOutcome, free: int, safe: bool,
+  type HostAcc = { calls: List[HostCall], acc: AccumulateOutcome, free: int, safe: bool,
     rejects: int, minGas: Option[int], creations: List[CreationEffect], transfers: List[TransferOutArgs] }
   pure def moved(h: HostAcc, acc: AccumulateOutcome): HostAcc = {
     val delta = hostCost(acc.state) - hostCost(h.acc.state)
@@ -78,7 +79,7 @@ module host_invocation {
       }
       | UpgradeService(p) => {
         val nextHost = moved(h, applied)
-        { ...nextHost, minGas: if (applied.logs == h.acc.logs) Some(p.minAccGas) else h.minGas }
+        { ...nextHost, calls: h.calls.concat(messageHostCalls(h.acc, applied, message)), minGas: if (applied.logs == h.acc.logs) Some(p.minAccGas) else h.minGas }
       }
       | RemoveServiceStorage(_) => moved(h, replayApply(h.acc, caller, FixedCodeLen, slot, anchor, message))
       | SetServiceSupervisor(_) => moved(h, replayApply(h.acc, caller, FixedCodeLen, slot, anchor, message))
@@ -94,7 +95,7 @@ module host_invocation {
       | _ => { ...h, safe: false }
     }
   }
-  type HostPackage = { state: ParachainServiceState, foreign: ForeignServices,
+  type HostPackage = { calls: List[HostCall], state: ParachainServiceState, foreign: ForeignServices,
     free: int, safe: bool, rejects: int, minGas: Option[int], creations: List[CreationEffect],
     transfers: List[TransferOutArgs], failedHeads: List[int], solicited: Set[(ParaId, Hash, int)], pruned: List[(ParaId, Timeslot)] }
   pure def limitedPackage(h: HostPackage, wr: WorkResult, slot: int, index: int): HostPackage = match wr.result {
@@ -113,7 +114,7 @@ module host_invocation {
           val headed = { ...base, parachains: prefix.state.parachains }
           val headCost = hostCost(headed) - hostCost(base)
           val headFits = headCost <= free
-          val start: HostAcc = { free: free - (if (headFits) headCost else 0), safe: h.safe,
+          val start: HostAcc = { calls: h.calls, free: free - (if (headFits) headCost else 0), safe: h.safe,
             rejects: h.rejects + (if (headFits) 0 else 1), minGas: h.minGas, creations: h.creations, transfers: h.transfers,
             acc: { state: if (headFits) headed else base, foreign: h.foreign,
               jamDesignate: List(), jamAssigns: List(),
@@ -125,7 +126,7 @@ module host_invocation {
           { ...h, state: if (logFits) logged else out.acc.state, foreign: out.acc.foreign,
             free: out.free - (if (logFits) logDelta else 0), safe: out.safe,
             failedHeads: if (headFits) h.failedHeads else h.failedHeads.append(index),
-            rejects: out.rejects, minGas: out.minGas, creations: out.creations, transfers: out.transfers,
+            calls: out.calls, rejects: out.rejects, minGas: out.minGas, creations: out.creations, transfers: out.transfers,
             solicited: applyPreimageOps(h.solicited, out.acc.preimageOps), pruned: h.pruned.append((ok.paraId, ok.lookupAnchor)) }
         }
       }
@@ -159,7 +160,7 @@ module host_invocation {
     val chargeCost = hostCost(proposed) - hostCost(queued)
     val arrived = if (queueFits and chargeCost <= queueFree) proposed else queueState
     val free = available - hostCost(arrived) + hostCost(credited)
-    val start: HostPackage = { state: arrived, foreign: due.foreign, free: free, safe: available >= 0,
+    val start: HostPackage = { calls: List(), state: arrived, foreign: due.foreign, free: free, safe: available >= 0,
       rejects: if (queueFits) 0 else 1, minGas: None, creations: List(),
       transfers: List(), failedHeads: List(), solicited: solicitedSet, pruned: List() }
     range(0, packages.length()).foldl(start, (a, i) =>
@@ -191,7 +192,7 @@ module host_invocation {
       lastHeadRoot' = if (interrupt < 0) headCommitment(svc, out.state) else None,
       logPrunedBelow' = out.pruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2)),
       replayIncoming' = incoming, replayGasLimits' = limits, replayInterrupt' = interrupt, replayPanic' = false,
-      replayDesignate' = List(), replayTransfers' = out.transfers, replayCreations' = out.creations,
+      replayHostCalls' = out.calls, replayDesignate' = List(), replayTransfers' = out.transfers, replayCreations' = out.creations,
       replayMinAccGas' = out.minGas.optionGetOr(replayMinAccGas),
       replayHostFailedHeads' = out.failedHeads, replayHostBudget' = allowance, replayHostFree' = out.free, replayHostRejects' = out.rejects
     }

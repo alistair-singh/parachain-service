@@ -1,5 +1,6 @@
 // Compose incoming transfers and work reports using the pinned model phases.
 module invocation_inputs {
+  import host_call_inputs.* from "./host_call_inputs"
   import types.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/types"
   import messages.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/messages"
   import state.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/state"
@@ -65,6 +66,7 @@ module invocation_inputs {
       foreignServices' = out.foreign,
       now' = slot,
       replayDesignate' = out.jamDesignate,
+      replayHostCalls' = effects.calls,
       replayTransfers' = effects.transfers,
       replayCreations' = effects.creations,
       replayMinAccGas' = effects.minAccGas.optionGetOr(replayMinAccGas),
@@ -98,7 +100,7 @@ module invocation_inputs {
     lastStepAssignBudget' = { flush: 0, end: 0 },
     replayIncoming' = incoming, replayInterrupt' = -2, replayPanic' = false,
     replayGasLimits' = packages.foldl(List(), (limits, _) => limits.append(UnlimitedGas)),
-    replayDesignate' = List(), replayTransfers' = List(), replayCreations' = List(),
+    noHostCalls, replayDesignate' = List(), replayTransfers' = List(), replayCreations' = List(),
     keepUpgradeGas
   }
 
