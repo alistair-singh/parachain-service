@@ -7,7 +7,6 @@ use std::{cell::RefCell, sync::OnceLock};
 
 use jam_codec::{Decode, Encode};
 use jam_node::vm::{AccumulateCallContext, Engine};
-use jam_types::AccumulateItem;
 use serde_json::Value;
 
 use super::{gas, replay::*};
@@ -161,18 +160,7 @@ pub fn limit(
 	}) {
 		return Err("instruction gas sampling requires admitted WorkOk reports".into());
 	}
-	// A pool below the declared gas leaves no always-accumulate allowance, so no
-	// due assign is flushed (§5.1). Calibrate in that regime as well, one gas
-	// short of the service's flush base plus one assign, so the host-call order
-	// matches every probe below.
-	let declared = context.items.iter().fold(0u64, |sum, item| {
-		sum.saturating_add(match item {
-			AccumulateItem::WorkItem(record) => record.gas_limit,
-			AccumulateItem::Transfer(transfer) => transfer.gas_limit,
-		})
-	});
-	let calibration = context.gas.min(declared.saturating_add(5_000_000 + 1_000_000 - 1));
-	let (events, used, completed) = probe(engine, context, calibration)?;
+	let (events, used, completed) = probe(engine, context, context.gas)?;
 	if !completed {
 		return Err("instruction gas calibration exhausted the default pool".into());
 	}

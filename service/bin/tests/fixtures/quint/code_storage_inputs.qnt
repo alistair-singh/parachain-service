@@ -79,7 +79,7 @@ module code_storage_inputs {
       lookupAnchor: 0, upwardMessages: List(msg) })), authTrace: 0 }
     all {
       svc' = out.state, prevSvc' = svc, now' = now + 1,
-      lastStepWorkResults' = List(wr), lastStepAssigns' = List(), lastStepAssignBudget' = FullAssignBudget,
+      lastStepWorkResults' = List(wr), lastStepAssigns' = List(),
       lastHeadRoot' = if (applied.trap) None else headCommitment(svc, out.state),
       solicitedSet' = solicitedSet, jamStagingSet' = jamStagingSet,
       foreignServices' = foreignServices, logPrunedBelow' = logPrunedBelow,

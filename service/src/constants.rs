@@ -53,14 +53,3 @@ pub const REPORT_BASE_GAS: u64 = 5_000_000;
 /// `SetValidatorKeys` against a large staging buffer) can exceed it.
 /// PROVISIONAL: must be benchmarked per variant; FIXME before production.
 pub const UPWARD_MESSAGE_GAS: u64 = 250_000;
-
-/// §5.1 due-assign flush — the cost of applying one due assign: reading its
-/// cached queue, the JAM `assign` of a cycle-expanded 80-hash queue, and
-/// re-caching a rotating queue. PROVISIONAL: must be benchmarked; FIXME before
-/// production.
-pub const DUE_ASSIGN_GAS: u64 = 1_000_000;
-
-/// §5.1 due-assign flush — the fixed cost of one flush: reading and rewriting
-/// the dirty-core index and logging rejections in the Coretime chain's log.
-/// PROVISIONAL: must be benchmarked; FIXME before production.
-pub const DUE_ASSIGN_FLUSH_BASE_GAS: u64 = 5_000_000;

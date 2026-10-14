@@ -26,7 +26,6 @@ module log_pruning {
       prevSvc' = svc,
       lastStepWorkResults' = out.results,
       lastStepAssigns' = out.assigns,
-      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = out.headRoot,
       logPrunedBelow' =
         out.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))

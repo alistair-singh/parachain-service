@@ -308,7 +308,6 @@ module upgrades {
       prevSvc' = svc,
       lastStepWorkResults' = out.results,
       lastStepAssigns' = out.assigns,
-      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = out.headRoot,
       logPrunedBelow' = logPrunedBelow
     }

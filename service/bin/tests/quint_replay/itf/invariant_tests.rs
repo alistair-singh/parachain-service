@@ -137,14 +137,13 @@ fn assignments_errors() {
 			&PendingAssign { queue: vec![[0; 32]], assigner: None },
 		)
 	});
-	rejects("fired_assign_not_left_due", |s, _, f| {
+	rejects("pending_authorizer_apply_at_future", |s, _, _| {
 		set_state(s, &storage_key(Tag::PendingAssignCores, &()), &vec![(1u16, 0u32)]);
 		set_state(
 			s,
 			&storage_key(Tag::PendingAssigns, &1u16),
 			&PendingAssign { queue: vec![[0; 32]], assigner: None },
 		);
-		f["lastStepAssigns"] = json!([{"core": {"#bigint": "1"}}]);
 	});
 	for len in [0, AUTHORIZER_QUEUE_LEN + 1] {
 		rejects("pending_authorizer_queue_bounded", |s, _, _| {
@@ -495,9 +494,8 @@ fn assignment_rollback_watermark_works() {
 		&PendingAssign { queue: vec![[0; 32]], assigner: None },
 	);
 	frame["now"] = json!({"#bigint": "20"});
-	frame["lastStepAssigns"] = json!([{"core": {"#bigint": "1"}}]);
 	state_at(&storage, &frame, &mut codex, 42, 5).unwrap();
 	assert!(state_at(&storage, &frame, &mut codex, 42, 10)
 		.unwrap_err()
-		.contains("fired_assign_not_left_due"));
+		.contains("pending_authorizer_apply_at_future"));
 }

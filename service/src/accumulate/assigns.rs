@@ -2,7 +2,7 @@
 //! flushes (spec §5.1, §7.1).
 
 use crate::{
-	constants::{AUTHORIZER_QUEUE_LEN, DUE_ASSIGN_FLUSH_BASE_GAS, DUE_ASSIGN_GAS},
+	constants::AUTHORIZER_QUEUE_LEN,
 	state::{
 		assigns::{DirtyCores, PendingAssign, PendingAssigns},
 		log::AccumulateLog,
@@ -10,9 +10,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use jam_pvm_common::{accumulate::assign, ApiError};
-use jam_types::{
-	auth_queue_len, core_count, AuthQueue, AuthorizerHash as JamAuthorizerHash, UnsignedGas,
-};
+use jam_types::{auth_queue_len, core_count, AuthQueue, AuthorizerHash as JamAuthorizerHash};
 use parachain_service_core::types::{AuthorizerHash, CoreIndex, ServiceId, Timeslot};
 
 /// Replay an `AssignCore` message (Coretime only, §4.3). Refine rejects a
@@ -60,30 +58,19 @@ pub fn schedule(
 	}
 }
 
-/// How many due assigns `gas` pays for in one flush (§5.1).
-pub fn budget(gas: UnsignedGas) -> usize {
-	(gas.saturating_sub(DUE_ASSIGN_FLUSH_BASE_GAS) / DUE_ASSIGN_GAS) as usize
-}
-
-/// Flush up to `budget` due pending assigns (§5.1): earliest due timeslot first,
-/// then lowest core index, so ones carried over from an earlier block go before
-/// newer ones. Due cores beyond the budget stay cached for a later flush. Gating
-/// reads only the dirty-core index; the payload is read just for fired cores.
+/// Flush all due pending assigns (§5.1), earliest due timeslot first and then
+/// lowest core index. Gating reads only the dirty-core index; the payload is
+/// read just for due cores.
 ///
 /// Returns the rejections to record in the Coretime chain's log.
-pub fn apply_due_assigns(
-	now: Timeslot,
-	service_id: ServiceId,
-	budget: usize,
-) -> Vec<AccumulateLog> {
+pub fn apply_due_assigns(now: Timeslot, service_id: ServiceId) -> Vec<AccumulateLog> {
 	let mut logs = Vec::new();
 	let cores = DirtyCores::get();
 	let mut due: Vec<_> = cores.iter().copied().filter(|(_, jam_slot)| *jam_slot <= now).collect();
-	if due.is_empty() || budget == 0 {
+	if due.is_empty() {
 		return logs;
 	}
 	due.sort_unstable_by_key(|&(core, jam_slot)| (jam_slot, core));
-	due.truncate(budget);
 	let mut next = cores;
 	next.retain(|entry| !due.contains(entry));
 	for (core, jam_slot) in due {

@@ -337,14 +337,12 @@ module fuzz {
     val incoming = range(0, count).foldl(List(), (a, i) => a.append({
       source: MkServiceId(7), amount: amount, toSupervisorBalance: false, memo: i }))
     val limit1 = budget(wr1, gasMode)
-    val prefix = hostPrefix(List(wr1), now + 1, incoming, List(limit1), allowance,
-      hostAssignBudget(stop))
+    val prefix = hostPrefix(List(wr1), now + 1, incoming, List(limit1), allowance)
     val wr2 = replayWork(prefix.state, para, prefix.state.paraInfo(para).headData,
       activeCodeCandidate(prefix.state, para), 0, now, 0, List(second, small))
     val packages = List(wr1, wr2)
     val limits = List(limit1, UnlimitedGas)
-    val beforeStop = hostPrefix(packages, now + 1, incoming, limits, allowance,
-      hostAssignBudget(stop))
+    val beforeStop = hostPrefix(packages, now + 1, incoming, limits, allowance)
     val interrupting = replayWork(beforeStop.state, para, beforeStop.state.paraInfo(para).headData,
       activeCodeCandidate(beforeStop.state, para), 0, now, 0,
       List(large, TransferOut(transfer(0, 0, 0, ExhaustPoolGas))))

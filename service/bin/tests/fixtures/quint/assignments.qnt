@@ -19,7 +19,6 @@ module assignments {
       svc' = out.state, now' = now + gap, prevSvc' = svc,
       jamStagingSet' = out.staging, solicitedSet' = out.solicited,
       lastStepWorkResults' = out.results, lastStepAssigns' = out.assigns,
-      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = out.headRoot, foreignServices' = out.foreign,
       logPrunedBelow' = logPrunedBelow
     }
