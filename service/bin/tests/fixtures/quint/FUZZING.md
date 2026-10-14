@@ -20,7 +20,7 @@ Configuration:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `QUINT_FUZZ_PROFILE` | `fuzz` | `fuzz` for combined Refine → Accumulate inputs; `storage` for metadata/KV/queue failures; `storage_recovery` for those failures combined with checkpoint exhaustion; `code_storage` for code acquisition/announcement failures; `outgoing_boundary` for exact spendable-balance limits; `self_payment` for deferred self-credit; `designation` for privilege changes |
+| `QUINT_FUZZ_PROFILE` | `fuzz` | `fuzz` for combined Refine → Accumulate inputs; `storage` for metadata/KV/queue failures; `storage_recovery` for those failures combined with checkpoint exhaustion; `code_storage` for code acquisition/announcement failures; `code_recovery` for those failures with checkpoint exhaustion; `outgoing_boundary` for exact spendable-balance limits; `self_payment` for deferred self-credit; `designation` for privilege changes |
 | `QUINT_FUZZ_TRACES` | `100` | Total traces across workers; `0` runs until failure/interruption |
 | `QUINT_FUZZ_STEPS` | `15` | Transitions per trace, 1–10000 |
 | `QUINT_FUZZ_WORKERS` | `1` | Independent Rust workers and generator processes |
@@ -365,6 +365,18 @@ checkpoint recovery, without injecting a malformed work digest. The independent
 oracle restores the report-entry state and free balance. Later invocations retry
 normally. This covers the existing panic behavior; it does not change production
 error handling. `solicit_implies_registry` is checked on every replay frame.
+
+`QUINT_FUZZ_PROFILE=code_recovery just quint-fuzz` combines the same oracle
+with exhaustion before the first checkpoint, inside the report, and after its
+final checkpoint. The generated regression requires registry, forced-metadata,
+and announcement rejections retained at the final checkpoint, all recovery
+phases, and subsequent successful invocations. Deterministic fixtures sample
+five gas positions per interval and retry acquisition and announcement writes.
+A negative replay discards a retained acquisition to verify checkpoint checking.
+Gas samples exclude invocations that would naturally trap on solicitation:
+those execute with the ordinary budget and assert `Trap` separately. Failure
+labels on rolled-back frames describe the attempted message's footprint;
+coverage of retained rejections requires the final checkpoint.
 
 ## Outgoing spendable-balance boundaries
 

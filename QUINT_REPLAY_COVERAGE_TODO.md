@@ -44,8 +44,11 @@ limits; separate Rust tests cover some excluded cases.
 - [x] Add `storage_recovery`: head, KV, incoming queue, registration/forced-head
   metadata, and staging failures with exhaustion before, inside, and after report
   checkpoints. Check retained prefixes, incoming credits, free balance, and retries.
-- [ ] TODO: Extend this recovery profile to compact-encoded balance growth,
-  forced-code acquisition/metadata, and code-announcement storage failures.
+- [x] Add `code_recovery` for forced-code acquisition/metadata and code-announcement
+  storage failures with pre-checkpoint, in-report, and final-checkpoint exhaustion;
+  verify retained references/free balance and retries. Keep natural solicitation
+  traps separate from gas exhaustion.
+- [ ] TODO: Extend storage recovery to compact-encoded balance growth.
 - [ ] TODO: Cover nonempty validator finalization under constrained host balance.
 - [ ] TODO: Model low-balance failure at remaining upward-message write sites and
   mix those failures with gas recovery; never infer the oracle from Rust effects.

@@ -38,6 +38,7 @@ fn generator_profile(profile: &str, seed: u64, stride: u64, count: u64, steps: u
 		"outgoing_boundary" => "service/bin/tests/fixtures/quint/outgoing_boundary_fuzz.qnt",
 		"storage" => "service/bin/tests/fixtures/quint/storage_fuzz.qnt",
 		"storage_recovery" => "service/bin/tests/fixtures/quint/storage_recovery.qnt",
+		"code_recovery" => "service/bin/tests/fixtures/quint/code_recovery.qnt",
 		"code_storage" => "service/bin/tests/fixtures/quint/code_storage_fuzz.qnt",
 		_ => panic!("unknown QUINT_FUZZ_PROFILE: {profile}"),
 	};
@@ -1014,4 +1015,40 @@ fn storage_recovery_generated_works() {
 	assert_eq!(phases, ["-2", "-1", "0", "1", "2"].map(str::to_owned).into());
 	assert!(metadata_failure && head_failure && resumed,
 		"missing mixed failure/retry coverage: metadata={metadata_failure}, head={head_failure}, resumed={resumed}");
+}
+
+#[test]
+#[ignore = "checks code storage failures with gas recovery; requires Node and Quint 0.32.0"]
+fn code_recovery_generated_works() {
+	let output = generator_profile("code_recovery", 1, 1, 30, 50).output().unwrap();
+	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+	let mut phases = std::collections::BTreeSet::new();
+	let mut retained_failures = std::collections::BTreeSet::new();
+	let mut resumed = false;
+	for line in String::from_utf8(output.stdout).unwrap().lines() {
+		let envelope: Value = serde_json::from_str(line).unwrap();
+		let mut interrupted = false;
+		for state in envelope["trace"]["states"].as_array().unwrap().iter().skip(1) {
+			let phase = state["replayInterrupt"]["#bigint"].as_str().unwrap();
+			phases.insert(phase.to_owned());
+			// A provision step is not an Accumulate retry.
+			resumed |= interrupted &&
+				phase == "-1" &&
+				state["replayHostBudget"]["#bigint"] != "-1" &&
+				state["replayCodeFailure"] == "";
+			interrupted |= phase != "-1";
+			if phase == "1" {
+				retained_failures.insert(state["replayCodeFailure"].as_str().unwrap().to_owned());
+			}
+		}
+		if let Err(error) = replay::document_trace(&envelope["trace"]) {
+			let path = preserve(&envelope, &error).unwrap();
+			panic!("{error}; {}", path.display());
+		}
+	}
+	assert_eq!(phases, ["-2", "-1", "0", "1"].map(str::to_owned).into());
+	for site in ["registry", "forced-metadata", "announcement"] {
+		assert!(retained_failures.contains(site), "missing checkpointed {site} rejection");
+	}
+	assert!(resumed, "missing successful invocation after recovery");
 }

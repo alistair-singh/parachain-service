@@ -17,7 +17,7 @@ cargo test -p parachain-service-bin --test quint_replay
 The generator uses the pinned model, TypeScript backend, and seed 1. It regenerates
 `combined`, `refine_fuzz`, `refine_errors`, `blocks`, `upgrades`, `log_pruning`, `kv`, `balances`, `lifecycle`,
 `assignments`, `validator_keys`, `outgoing`, `service_upgrades`, `mixed`, `gas`,
-`storage`, `storage_recovery`, `host_mixed`, `services`, `service_preimages`, `service_management`, and `panic_recovery` scenarios,
+`storage`, `storage_recovery`, `code_recovery`, `host_mixed`, `services`, `service_preimages`, `service_management`, and `panic_recovery` scenarios,
 including the root minimal and stale-parent fixtures. Other historical fixtures
 are retained.
 JSON is compact and timestamp-free; use `just quint-fmt` to expand it for review
@@ -245,6 +245,12 @@ requires every recovery phase, metadata and head failures in interrupted
 invocations, and subsequent successful invocations. Nonempty validator
 finalization and other upward-message backstop sites remain follow-ups in
 [the coverage TODO](../../../../../QUINT_REPLAY_COVERAGE_TODO.md).
+
+The `code_recovery` profile applies the independent code-storage oracle to a
+single-report invocation with pre-checkpoint, in-report, and final-checkpoint
+exhaustion. It checks forced-code registry/acquisition and metadata rejection,
+announcement writes, retained references and free balance, and successful retries.
+Natural solicitation traps remain distinct from sampled gas exhaustion.
 
 ## Ordered designation and upgrade calls
 

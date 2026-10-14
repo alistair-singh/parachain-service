@@ -137,7 +137,10 @@ pub fn limit(
 	let after_checkpoint = gas::interrupted(frame)? == Some(results.len());
 	if !before_checkpoint &&
 		!after_checkpoint &&
-		!(frame.get("replayStorageBudget").is_some() && gas::interrupted(frame)?.is_some()) &&
+		!((frame.get("replayStorageBudget").is_some() ||
+			(frame.get("replayCodeFailure").is_some() &&
+				frame.get("replayHostTrap") == Some(&Value::Bool(false)))) &&
+			gas::interrupted(frame)?.is_some()) &&
 		absolute.is_none() &&
 		sample.is_none() &&
 		boundary.is_none()
