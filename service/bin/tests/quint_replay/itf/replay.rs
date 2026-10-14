@@ -40,6 +40,7 @@ pub fn document_trace(document: &Value) -> Result<(), String> {
 	let states = document.get("states").and_then(Value::as_array).ok_or("missing states")?;
 	super::host_budget::validate(states)?;
 	super::refine::validate(&document, states)?;
+	super::host_calls::validate(&document, states)?;
 	super::validator_keys::validate(states)?;
 	super::services::validate(states)?;
 	let mut created_accounts = Default::default();
@@ -567,7 +568,7 @@ pub(super) fn accumulate_block_recovery(
 		.service(MOCK_SERVICE_ID)
 		.expect("replay service exists")
 		.code_hash;
-	let calls = super::assignment_calls::Capture::start()?;
+	let calls = super::host_calls::Capture::start()?;
 	let (result, elapsed, gas_used) = engine.accumulate(code_hash, &mut context);
 	let yielded = if let Some(expected) = interrupted {
 		// The test VM API does not export its error enum. Require this exact
@@ -592,9 +593,9 @@ pub(super) fn accumulate_block_recovery(
 		result.map_err(|error| format!("accumulate installed service {code_hash:?}: {error}"))?
 	};
 	if let Some(frame) = frame {
-		calls
-			.compare(frame, interrupted.is_some())
-			.map_err(|error| format!("lastStepAssigns: {error}"))?;
+		calls.compare(frame, interrupted.is_some()).map_err(|error| {
+			format!("host-call history (lastStepAssigns/replayHostCalls): {error}")
+		})?;
 	}
 	let outcome = executor::pj::AccumulateOutcome { yielded, elapsed, gas_used };
 	Ok((outcome, context.storage, context.mutations))

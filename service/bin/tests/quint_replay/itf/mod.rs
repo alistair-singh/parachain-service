@@ -46,4 +46,4 @@ mod instruction_gas;
 
 mod refine;
 
-mod assignment_calls;
+mod host_calls;

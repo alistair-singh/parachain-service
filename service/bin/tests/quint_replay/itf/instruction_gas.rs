@@ -20,14 +20,14 @@ struct Observer;
 impl log::Log for Observer {
 	fn enabled(&self, metadata: &log::Metadata) -> bool {
 		(metadata.target() == "service" && EVENTS.with(|events| events.borrow().is_some())) ||
-			(metadata.target() == "replay_host" && super::assignment_calls::enabled())
+			(metadata.target() == "replay_host" && super::host_calls::enabled())
 	}
 	fn log(&self, record: &log::Record) {
 		if !self.enabled(record.metadata()) {
 			return;
 		}
 		if record.target() == "replay_host" {
-			super::assignment_calls::record(&record.args().to_string());
+			super::host_calls::record(&record.args().to_string());
 			return;
 		}
 		EVENTS.with(|events| {

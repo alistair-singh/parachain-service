@@ -464,3 +464,12 @@ the middle of each interrupted interval by default; sampled replay can override
 that position using `replayGasSample`. The expected retained prefix comes from
 Quint, independently of gas calibration. This focused profile supplies work
 results directly and does not execute Refine.
+
+## Ordered host effects
+
+The default campaign records every successful designation and self-upgrade in
+`replayHostCalls`, including duplicate calls and interleaving within reports.
+Mixed host-budget invocations record their successful upgrades as well. Rust
+checks these events against hazmat host observation after applying checkpoint
+rollback. Generated designation and upgrade regressions require their respective
+history events; final-state and assignment comparisons remain enabled.

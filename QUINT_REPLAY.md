@@ -89,8 +89,10 @@ message pools keep these calls away from the output-size boundary. Focused
 refine boundary fixtures use concrete-size KV messages instead. Those standalone
 fixtures remain regression tests, not a separate server profile.
 
-The local PolkaJAM hazmat host emits completed assignment and checkpoint events
-for ordered replay comparison. Keep the host change together with the replay
-adapter: final mutations alone cannot expose overwritten assignments. Designation
-and upgrade histories still have only final-effect comparison. Remaining work
+The PolkaJAM hazmat host emits completed assignment, designation, upgrade, and
+checkpoint events for ordered replay comparison. Assignment order is compared
+against `lastStepAssigns`; interleaved designation/upgrade order is compared
+against `replayHostCalls`. Completed checkpoints select the retained history
+after rollback. Final-effect checks remain independent. New generated traces
+require the history metadata; legacy traces retain their existing comparisons. Remaining work
 is tracked in [the coverage TODO](QUINT_REPLAY_COVERAGE_TODO.md).

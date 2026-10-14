@@ -59,8 +59,8 @@ JAM balances, installed code lengths, and upgrade gas-setting mismatches are rej
   unchanged set. Historical fixtures without key inputs may omit this field.
   The fixture wrapper evaluates `accumulateBlock` with an empty incoming JAM set
   to expose that effect, then carries the prior set forward when no call occurs.
-  The host exposes only the final successful designation, so intermediate calls
-  overwritten in a block remain unobservable. The `designation` profile extends
+  Hazmat observation additionally compares each successful designation in
+  model order, including repeated identical sets and overwritten calls. The `designation` profile extends
   the model with explicit `replayCanDesignate` inputs and covers privilege rejection
   and restoration. The general fuzz input pool includes privileged key updates.
   Unexpected provide or eject effects fail; creation and transfers use the explicit oracles below.
@@ -138,8 +138,9 @@ JAM balances, installed code lengths, and upgrade gas-setting mismatches are rej
   stores the code hash, code length, and minimum memo gas, but not minimum
   accumulate gas. The shared `messageEffects` observer records that argument
   from the last successful model `applyUpwardMessage` and carries it through
-  rejected/no-upgrade frames. Replay compares all four fields. The host exposes
-  final account fields, not a log of intermediate upgrade calls.
+  rejected/no-upgrade frames. Replay compares all four fields. Hazmat observation
+  also compares every successful self-upgrade call, including intermediate code
+  hashes and gas settings overwritten within the invocation.
   A wrong upgrade length keeps the same code hash and reaches the availability
   check. Conflicting lengths in actual solicit/provision requests remain outside
   the codex domain. Generated upgrades target these executable blobs; the
@@ -244,3 +245,22 @@ requires every recovery phase, metadata and head failures in interrupted
 invocations, and subsequent successful invocations. Nonempty validator
 finalization and other upward-message backstop sites remain follow-ups in
 [the coverage TODO](../../../../../QUINT_REPLAY_COVERAGE_TODO.md).
+
+## Ordered designation and upgrade calls
+
+`host_call_inputs.qnt` observes successful effects from model message transitions.
+`replayHostCalls` preserves designation/upgrade order and duplicates across reports;
+refused messages and rejected reports emit no entries. The mixed host-budget
+oracle observes upgrades at its own message transitions. Designation privilege
+fixtures retain only successful calls. No history is inferred from final keys,
+code hashes, account fields, or Rust outputs.
+
+The hazmat host records successful calls and completed checkpoints. Rust compares
+the retained history after normal completion or checkpoint rollback, alongside
+existing final-state comparisons. `host_calls/` covers interleaved calls,
+identical repetitions, overwritten effects, traps, sampled gas exhaustion before,
+inside and after report checkpoints, and subsequent successful invocations.
+Mutation tests alter history without changing the expected final state.
+New generated traces set `replayHostCallsRequired`; missing history then fails
+rather than silently falling back to final-effect-only replay. Legacy saved
+traces without that marker or history remain supported.

@@ -31,8 +31,10 @@ limits; separate Rust tests cover some excluded cases.
 
 - [x] Compare successful assignment arguments and order, including repeated
   writes to one core and independent cores, with checkpoint-aware rollback.
-- [ ] TODO: Retain and compare every successful designation and service upgrade,
-  including intermediate calls overwritten before the invocation returns.
+- [x] Retain and compare every successful designation and service upgrade,
+  including intermediate and repeated calls overwritten before invocation return.
+  Check interleaved call order, checkpoint rollback, and mutations preserving final
+  effects; generated traces require the history metadata.
 - [x] Preserve final assignment-effect comparisons and add mutations that leave final
   effects unchanged while corrupting the intermediate call history. The host
   observation is gated by PolkaJAM's `hazmat` feature.

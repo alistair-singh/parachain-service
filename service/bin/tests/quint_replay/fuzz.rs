@@ -323,6 +323,12 @@ fn validator_keys_generated_works() {
 		}),
 		"fuzz seed must exercise a successful validator-key designation"
 	);
+	assert_eq!(trace["replayHostCallsRequired"], true);
+	assert!(trace["states"].as_array().unwrap().iter().any(|state| state["replayHostCalls"]
+		.as_array()
+		.unwrap()
+		.iter()
+		.any(|call| call["tag"] == "DesignateCall")));
 	replay::document_trace(trace).expect("generated validator keys should match Quint");
 }
 
@@ -358,6 +364,12 @@ fn service_upgrade_generated_works() {
 			.any(|state| state["svc"]["serviceCodeHash"]["hashBytes"]["#bigint"] != "0"),
 		"fuzz seed must install new service code"
 	);
+	assert_eq!(trace["replayHostCallsRequired"], true);
+	assert!(trace["states"].as_array().unwrap().iter().any(|state| state["replayHostCalls"]
+		.as_array()
+		.unwrap()
+		.iter()
+		.any(|call| call["tag"] == "UpgradeCall")));
 	replay::document_trace(trace).expect("generated service upgrades should match Quint");
 }
 
