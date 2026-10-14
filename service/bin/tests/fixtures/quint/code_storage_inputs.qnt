@@ -1,5 +1,6 @@
 // Independent host-write oracle for code acquisition and announcements.
 module code_storage_inputs {
+  import refine_inputs.* from "./refine_inputs"
   import types.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/types"
   import messages.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/messages"
   import state.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/state"
@@ -86,6 +87,7 @@ module code_storage_inputs {
       noTransfers, noDesignation,
       replayHostFailedHeads' = List(), replayHostBudget' = allowance, replayHostFree' = out.free,
       replayHostRejects' = if (applied.failure == "") 0 else 1,
+      noRefine,
       replayGasLimits' = List(UnlimitedGas), replayInterrupt' = if (applied.trap) 0 else -1,
       replayPanic' = false, replayHostTrap' = applied.trap,
       replayCodeFailure' = applied.failure

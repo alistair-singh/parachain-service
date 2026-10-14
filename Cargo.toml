@@ -9,6 +9,7 @@ members = [
     "service",
     "service/bin",
     "testing/mock-dest-service",
+    "testing/refine-replay-pvf",
     "tools/executor",
 ]
 exclude = [

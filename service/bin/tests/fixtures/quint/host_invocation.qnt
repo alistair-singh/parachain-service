@@ -1,4 +1,5 @@
 module host_invocation {
+  import refine_inputs.* from "./refine_inputs"
   import foreign_services.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/foreign_services"
   import types.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/types"
   import messages.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/messages"
@@ -165,7 +166,11 @@ module host_invocation {
       if (limits[i] < reportGas(packages[i])) a else limitedPackage(a, packages[i], slot, i))
   }
   action hostInvocation(packages: List[WorkResult], slot: int, incoming: List[IncomingTransfer],
-    limits: List[int], allowance: int, interrupt: int): bool = {
+    limits: List[int], allowance: int, interrupt: int): bool =
+    hostWithRefine(packages, slot, incoming, limits, allowance, interrupt, None)
+
+  action hostWithRefine(packages: List[WorkResult], slot: int, incoming: List[IncomingTransfer],
+    limits: List[int], allowance: int, interrupt: int, inputs: Option[List[RefineInput]]): bool = {
     val end = if (interrupt < 0) packages.length() else interrupt
     val assignBudget = hostAssignBudget(interrupt >= 0)
     val out = hostPrefix(packages.slice(0, end), slot, incoming, limits.slice(0, end), allowance,
@@ -173,6 +178,7 @@ module host_invocation {
     val due = accumulateBlockBudgeted(svc, slot, List(), solicitedSet, FixedCodeLen, List(),
       foreignServices, assignBudget)
     all {
+      replayRefineInputs' = inputs,
       out.safe,
       // Scheduler delivery is outside guest execution and checkpoint rollback.
       // Only the retained prefix's emitted records receive this later credit.

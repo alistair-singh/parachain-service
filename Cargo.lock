@@ -3166,6 +3166,7 @@ dependencies = [
  "parity-scale-codec",
  "polkavm",
  "primitive-types",
+ "refine-replay-pvf",
  "serde_json",
  "tiny-keccak",
 ]
@@ -3907,6 +3908,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.2",
+]
+
+[[package]]
+name = "refine-replay-pvf"
+version = "0.1.0"
+dependencies = [
+ "parachain-service-core",
+ "parity-scale-codec",
+ "polkavm-derive 0.36.0",
 ]
 
 [[package]]

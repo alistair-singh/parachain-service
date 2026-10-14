@@ -1,9 +1,10 @@
 # Streaming Quint replay
 
-Each worker runs a persistent Node/Quint generator and replays its traces through
-Rust Accumulate in the PolkaJAM PVM interpreter. Quint supplies expected states
-and work results; Rust Refine is not executed. Storage, head commitments, supported
-JAM effects, and invariants are checked by the [replay harness](../../../../../QUINT_REPLAY.md).
+Each worker runs a persistent Node/Quint generator. In the default campaign,
+Rust Refine executes each candidate's retained host-call script in the PolkaJAM
+PVM, and its actual result is compared with Quint before being passed to Rust
+Accumulate. Storage, head commitments, supported JAM effects, and invariants are
+then checked by the [replay harness](../../../../../QUINT_REPLAY.md).
 
 ## Running campaigns
 
@@ -19,7 +20,7 @@ Configuration:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `QUINT_FUZZ_PROFILE` | `fuzz` | `fuzz` for general inputs; `storage` for metadata/KV/queue failures; `code_storage` for code acquisition/announcement failures; `outgoing_boundary` for exact spendable-balance limits; `self_payment` for deferred self-credit; `designation` for privilege changes |
+| `QUINT_FUZZ_PROFILE` | `fuzz` | `fuzz` for combined Refine → Accumulate inputs; `storage` for metadata/KV/queue failures; `code_storage` for code acquisition/announcement failures; `outgoing_boundary` for exact spendable-balance limits; `self_payment` for deferred self-credit; `designation` for privilege changes |
 | `QUINT_FUZZ_TRACES` | `100` | Total traces across workers; `0` runs until failure/interruption |
 | `QUINT_FUZZ_STEPS` | `15` | Transitions per trace, 1–10000 |
 | `QUINT_FUZZ_WORKERS` | `1` | Independent Rust workers and generator processes |
@@ -432,3 +433,23 @@ that fixture is regenerated with the compatibility wrapper. A separate
 `cleanup_reregister` regression covers removal and recreation within one package.
 Mutation tests reject nonexistent registry entries, wrong referencers, and absent
 `solicitedSet` metadata. No expected history is repaired from actual Rust storage.
+
+## Refine execution in the default campaign
+
+No extra profile or server is needed: `just quint-fuzz --infinite` runs both
+stages, and `just quint-fuzz-deploy SERVER` deploys the same campaign.
+The existing saved-failure replay command also runs both stages, without Quint.
+
+A block retains one refine input for every work result. Candidates execute
+sequentially, then one accumulate invocation receives their actual outputs in
+order. Work rejected by JAM before refine is explicitly marked as skipped.
+Refine is checked even for reports that accumulate later skips for gas or loses
+during checkpoint recovery. Existing explicit malformed-digest injection still
+occurs after the refinement check.
+
+`combined.qnt` supplies end-to-end regression fixtures for a single candidate,
+ordered batches, errors, and checkpoint recovery. Mutation tests independently
+corrupt the script, expected digest, expected accumulated state, and metadata.
+`refine_fuzz.qnt` remains a focused test-only generator for declaration ordering
+and message byte/count boundaries; it is not a selectable campaign profile.
+See the [adapter limits](../../../../../QUINT_REPLAY.md#combined-campaign).

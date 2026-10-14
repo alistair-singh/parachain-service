@@ -29,9 +29,17 @@ pub fn trace(json: &str) -> Result<(), String> {
 pub fn document_trace(document: &Value) -> Result<(), String> {
 	// Validate every Quint value strictly before using the ergonomic JSON view.
 	super::value::ItfValue::try_from(document)?;
+	if document
+		.get("states")
+		.and_then(Value::as_array)
+		.is_some_and(|states| states.iter().any(|s| s.get("replayRefine").is_some()))
+	{
+		return super::refine::trace(document);
+	}
 	let document = super::storage_budget::normalize(document)?;
 	let states = document.get("states").and_then(Value::as_array).ok_or("missing states")?;
 	super::host_budget::validate(states)?;
+	super::refine::validate(&document, states)?;
 	super::validator_keys::validate(states)?;
 	super::services::validate(states)?;
 	let mut created_accounts = Default::default();
@@ -152,10 +160,8 @@ pub fn document_trace(document: &Value) -> Result<(), String> {
 					}) {
 					return Err("UpgradeService inputs require replayMinAccGas".into());
 				}
-				let mut items = results
-					.iter()
-					.map(|result| work_item(result, &mut codex))
-					.collect::<Result<Vec<_>, _>>()?;
+				let mut items = super::refine::work_items(&storage, &pair[1], results, &mut codex)
+					.map_err(|e| format!("frame {frame}: {e}"))?;
 				super::gas::apply(&pair[1], &mut items)?;
 				super::recovery::inject(&pair[1], &mut items)?;
 				// Put arrivals after reports deliberately: the runtime must collect all
@@ -274,7 +280,7 @@ pub(super) fn work_item(value: &Value, codex: &mut Codex) -> Result<AccumulateIt
 	}
 }
 
-fn work_digest(value: &Value, codex: &mut Codex) -> Result<ParachainWorkDigest, String> {
+pub(super) fn work_digest(value: &Value, codex: &mut Codex) -> Result<ParachainWorkDigest, String> {
 	let (tag, value) = variant(value)?;
 	match tag {
 		"Ok" => digest_ok(value, codex),
@@ -318,7 +324,7 @@ fn digest_ok(value: &Value, codex: &mut Codex) -> Result<ParachainWorkDigest, St
 	})
 }
 
-fn upward_message(
+pub(super) fn upward_message(
 	value: &Value,
 	caller: ParaId,
 	codex: &mut Codex,

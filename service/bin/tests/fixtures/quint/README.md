@@ -1,7 +1,8 @@
 # Quint replay fixtures
 
-These fixtures replay recorded work results through Rust Accumulate in the PVM
-and compare storage and returned head commitments. Rust Refine is not executed.
+Combined fixtures execute Rust Refine and pass its actual outputs to Rust
+Accumulate in the PVM. Historical accumulate fixtures supply recorded work
+results directly. Both compare storage and returned head commitments.
 For streaming campaigns and saved-failure replay, see [FUZZING.md](FUZZING.md).
 
 ## Regenerate and replay
@@ -14,7 +15,7 @@ cargo test -p parachain-service-bin --test quint_replay
 ```
 
 The generator uses the pinned model, TypeScript backend, and seed 1. It regenerates
-`refine_errors`, `blocks`, `upgrades`, `log_pruning`, `kv`, `balances`, `lifecycle`,
+`combined`, `refine_fuzz`, `refine_errors`, `blocks`, `upgrades`, `log_pruning`, `kv`, `balances`, `lifecycle`,
 `assignments`, `validator_keys`, `outgoing`, `service_upgrades`, `mixed`, `gas`,
 `storage`, `host_mixed`, `services`, `service_preimages`, `service_management`, and `panic_recovery` scenarios,
 including the root minimal and stale-parent fixtures. Other historical fixtures
@@ -26,6 +27,7 @@ and `just quint-compact` before committing.
 
 | Scenarios | Checks |
 | --- | --- |
+| Combined refine and accumulate | Original scripts, actual digests, ordered batches, errors, and checkpoint recovery |
 | Refine errors, WorkErr, empty blocks | Error logs, unlogged failures of other code, and unchanged state for skipped work |
 | Pre-checkpoint gas recovery | Independent rollback oracle, retained incoming funds, reverted due assignments and queue writes, repeated exhaustion, and successful retries |
 | Instruction gas recovery | Sampled invocation limits and cutoffs before/after writes, creation, and transfers; fixed Quint prefix, checkpoint effects, and subsequent invocations |
@@ -215,3 +217,12 @@ there are no final-tail writes. See the fuzzing guide for calibration details.
 The `outgoing_boundaries` fixtures and `outgoing_boundary` generated profile cover
 threshold-adjacent spends using an explicit host-budget compatibility oracle;
 see the [fuzzing guide](FUZZING.md#outgoing-spendable-balance-boundaries).
+
+## Refine execution
+
+The default `fuzz.qnt` campaign retains refine inputs and runs Rust Refine before
+Rust Accumulate. `combined.qnt` and `combined/` contain end-to-end fixtures.
+`refine_fuzz.qnt` and `refine_fuzz/` retain focused standalone boundary regressions;
+`refine_errors/` supplies errors directly to accumulate. Regenerate fixtures with
+`scripts/generate-quint-replays.py`. All use the same parser and saved-failure
+replay entry point; see [FUZZING.md](FUZZING.md).

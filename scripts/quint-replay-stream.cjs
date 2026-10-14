@@ -55,6 +55,8 @@ async function main() {
     if (outcome.status !== 'ok' || !trace || trace.states.length !== steps + 1)
       throw new Error(`seed ${seed}: simulation failed or stopped early (${outcome.status})`);
     // Strip only ITF metadata; preserve all generated model values.
+    // The default campaign must never silently fall back to supplied digests.
+    if (path.basename(input) === 'fuzz.qnt') trace.replayRefineRequired = true;
     delete trace['#meta'];
     for (const state of trace.states) delete state['#meta'];
     const line = JSON.stringify({ seed: seed.toString(), steps, version,

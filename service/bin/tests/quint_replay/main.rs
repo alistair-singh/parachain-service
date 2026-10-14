@@ -47,3 +47,7 @@ fn refine_error_replay_works() {
 
 mod final_checkpoint;
 mod pre_checkpoint;
+
+mod refine;
+
+mod combined;

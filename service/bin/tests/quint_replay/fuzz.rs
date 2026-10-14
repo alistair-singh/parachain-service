@@ -924,3 +924,51 @@ fn designation_privilege_generated_works() {
 		"missing privilege rejection, partial staging, or restoration"
 	);
 }
+
+#[test]
+#[ignore = "executes generated Refine scripts; requires Node and Quint 0.32.0"]
+fn refine_generated_works() {
+	// Focused boundary regressions remain test-only; the server uses the
+	// default campaign, which now executes refine before accumulate.
+	let stream = Command::new("node")
+		.current_dir(root())
+		.args([
+			"scripts/quint-replay-stream.cjs",
+			"service/bin/tests/fixtures/quint/refine_fuzz.qnt",
+			"1",
+			"1",
+			"10",
+			"20",
+		])
+		.output()
+		.expect("refine generator");
+	assert!(stream.status.success(), "{}", String::from_utf8_lossy(&stream.stderr));
+	let mut outcomes = std::collections::BTreeSet::new();
+	for line in String::from_utf8(stream.stdout).unwrap().lines() {
+		let envelope: Value = serde_json::from_str(line).unwrap();
+		for state in envelope["trace"]["states"].as_array().unwrap().iter().skip(1) {
+			let result = &state["replayRefineExpected"][0];
+			let tag = if result["tag"] == "WorkErr" {
+				"WorkErr"
+			} else if result["value"]["tag"] == "Ok" {
+				"Ok"
+			} else {
+				result["value"]["value"]["error"]["tag"].as_str().unwrap()
+			};
+			outcomes.insert(tag.to_owned());
+		}
+		replay::document_trace(&envelope["trace"])
+			.unwrap_or_else(|error| panic!("seed {}: {error}", envelope["seed"]));
+	}
+	for expected in [
+		"Ok",
+		"WorkErr",
+		"ValidationCodeLookupFailed",
+		"InvalidHeadDeclaration",
+		"Opaque",
+		"UpwardMessagesTooLarge",
+		"TooManyUpwardMessages",
+	] {
+		assert!(outcomes.contains(expected), "missing {expected}: {outcomes:?}");
+	}
+}
