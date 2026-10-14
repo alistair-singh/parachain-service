@@ -202,3 +202,13 @@ Since Quint `73d4d9eb9d8` Refine rejects an `AssignCore` naming a core at or abo
 answer `CORE`, and the dirty-core index's 341-entry bound holds. `WHO` was already unreachable,
 so an `assign` now fails only for a handoff. The model fixes `CoreCount` at the full chain's
 341.
+
+## M-15: Rust always completes the due-assignment phase
+
+Spec §5.1 and Quint allow a budgeted prefix of due assignments, followed by a
+second flush after work packages and carry-over to later blocks. Rust deliberately
+processes every due assignment before transfers and work packages. Replay selects
+`FullAssignBudget`, including invocations interrupted after the always-accumulate
+checkpoint, and retains the stronger `pending_authorizer_apply_at_future` check
+alongside the model's `fired_assign_not_left_due` predicate. Updating the model pin
+does not enable partial flushing in Rust.

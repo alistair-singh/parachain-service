@@ -38,6 +38,7 @@ module lifecycle_inputs {
       svc' = out.state, now' = now + gap, prevSvc' = svc,
       jamStagingSet' = out.jamDesignate, solicitedSet' = out.solicited,
       lastStepWorkResults' = List(wr), lastStepAssigns' = due.assigns.concat(out.jamAssigns),
+      lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = headCommitment(svc, out.state), foreignServices' = out.foreign,
       logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
     }

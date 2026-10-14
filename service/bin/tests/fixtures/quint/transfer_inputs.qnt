@@ -8,17 +8,21 @@ module transfer_inputs {
 
   var replayIncoming: List[IncomingTransfer]
   action noTransfers = replayIncoming' = List()
-  action recordIncoming(transfers: List[IncomingTransfer]): bool = all {
+  action recordIncoming(transfers: List[IncomingTransfer]): bool = {
+    val out = accumulateTransfers(svc, now, transfers, FullAssignBudget)
+    all {
     replayIncoming' = transfers,
-    svc' = applyIncomingTransfers(svc, transfers),
+    svc' = out.state,
     now' = now,
     jamStagingSet' = jamStagingSet,
     solicitedSet' = solicitedSet,
     prevSvc' = svc,
     lastStepWorkResults' = List(),
-    lastStepAssigns' = List(),
+    lastStepAssigns' = out.assigns,
+    lastStepAssignBudget' = FullAssignBudget,
     lastHeadRoot' = None,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
+    }
   }
 }

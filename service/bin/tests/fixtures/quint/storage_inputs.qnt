@@ -166,7 +166,7 @@ module storage_inputs {
       (a, i) => report(a, packages[i], i, now + 1))
     all {
       svc' = out.state, prevSvc' = svc, now' = now + 1,
-      lastStepWorkResults' = packages, lastStepAssigns' = List(),
+      lastStepWorkResults' = packages, lastStepAssigns' = List(), lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = headCommitment(svc, out.state),
       solicitedSet' = solicitedSet, jamStagingSet' = jamStagingSet,
       foreignServices' = foreignServices, logPrunedBelow' = logPrunedBelow,

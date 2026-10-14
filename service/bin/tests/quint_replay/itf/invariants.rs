@@ -249,6 +249,20 @@ pub fn state_at(
 		frame,
 		&due,
 	)?;
+	// The upstream model also permits partial flushes; its weaker predicate
+	// must hold independently of our complete-flush policy above.
+	for call in field(current, "lastStepAssigns")?
+		.as_array()
+		.ok_or("lastStepAssigns must be a list")?
+	{
+		let core = bounded_integer::<u16>(field(call, "core")?, "assigned core")?;
+		check(
+			due.iter().all(|(c, slot)| *c != core || *slot > now),
+			"fired_assign_not_left_due",
+			frame,
+			core,
+		)?;
+	}
 	for core in 0..CORE_COUNT as u16 {
 		let pending: Option<PendingAssign> =
 			read(storage, &storage_key(Tag::PendingAssigns, &core))?;

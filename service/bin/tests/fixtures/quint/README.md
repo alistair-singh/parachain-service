@@ -76,6 +76,9 @@ JAM balances, installed code lengths, and upgrade gas-setting mismatches are rej
   Report failures after the always-accumulate checkpoint preserve those effects;
   failures before that checkpoint roll them back. Assignment regression tests
   cover complete flushing, future queues, rotation, and rejection log order.
+  The upstream model also supports partial flushes; replay selects
+  `FullAssignBudget` to match Rust's complete-flush policy. A rollback before
+  the first checkpoint records zero retained assignment budget/effects.
 - Incoming-transfer replay requires explicit `replayIncoming` operands and an
   initially empty queue. Frames may carry arrivals and work reports together;
   replay credits arrivals before one invocation containing both input types. Regular-balance arrivals are supported; supervisor
