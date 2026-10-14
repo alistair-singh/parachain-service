@@ -29,11 +29,11 @@ limits; separate Rust tests cover some excluded cases.
 
 ## 5 Individual host calls
 
-- [ ] TODO: Compare successful assignment arguments and order, including repeated
+- [x] Compare successful assignment arguments and order, including repeated
   writes to one core and independent cores, with checkpoint-aware rollback.
 - [ ] TODO: Retain and compare every successful designation and service upgrade,
   including intermediate calls overwritten before the invocation returns.
-- [ ] TODO: Preserve final assignment-effect comparisons and add mutations that leave final
+- [x] Preserve final assignment-effect comparisons and add mutations that leave final
   effects unchanged while corrupting the intermediate call history. The host
   observation is gated by PolkaJAM's `hazmat` feature.
 

@@ -19,10 +19,15 @@ thread_local! {
 struct Observer;
 impl log::Log for Observer {
 	fn enabled(&self, metadata: &log::Metadata) -> bool {
-		metadata.target() == "service" && EVENTS.with(|events| events.borrow().is_some())
+		(metadata.target() == "service" && EVENTS.with(|events| events.borrow().is_some())) ||
+			(metadata.target() == "replay_host" && super::assignment_calls::enabled())
 	}
 	fn log(&self, record: &log::Record) {
 		if !self.enabled(record.metadata()) {
+			return;
+		}
+		if record.target() == "replay_host" {
+			super::assignment_calls::record(&record.args().to_string());
 			return;
 		}
 		EVENTS.with(|events| {
@@ -36,7 +41,7 @@ impl log::Log for Observer {
 	fn flush(&self) {}
 }
 
-fn observe() -> Result<(), String> {
+pub(super) fn observe() -> Result<(), String> {
 	static INSTALLED: OnceLock<Result<(), String>> = OnceLock::new();
 	INSTALLED
 		.get_or_init(|| {

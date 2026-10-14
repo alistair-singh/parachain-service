@@ -5,7 +5,7 @@ Accumulate in the PolkaJAM PVM. It compares each actual refine digest or trap,
 then feeds those actual results into accumulate and compares storage, head
 commitments, and supported JAM effects after each transition. Coverage includes
 ordered outgoing transfers, regular JAM balances,
-validator designation, core assignments, service upgrades, service creation, and
+validator designation, ordered successful core-assignment calls, service upgrades, service creation, and
 ejection, service-targeted solicit/forget, storage removal, and supervisor handoff
 refusals. Creation checks include the
 new account and its code request. Upgrade checks
@@ -88,3 +88,9 @@ the existing codex maps abstract heads to empty or eight-byte heads. The default
 message pools keep these calls away from the output-size boundary. Focused
 refine boundary fixtures use concrete-size KV messages instead. Those standalone
 fixtures remain regression tests, not a separate server profile.
+
+The local PolkaJAM hazmat host emits completed assignment and checkpoint events
+for ordered replay comparison. Keep the host change together with the replay
+adapter: final mutations alone cannot expose overwritten assignments. Designation
+and upgrade histories still have only final-effect comparison. Remaining work
+is tracked in [the coverage TODO](QUINT_REPLAY_COVERAGE_TODO.md).

@@ -71,9 +71,11 @@ JAM balances, installed code lengths, and upgrade gas-setting mismatches are rej
   core and carries actual JAM privileges between blocks, including handoffs.
   Quint's ordered `lastStepAssigns` is folded into expected final queues and
   privileges, checking all privilege fields and rejecting extra assigned cores.
-  The vendored host exposes only final mutations, so overwritten intermediate
-  calls and ordering between independent cores cannot be compared. The model's
-  `jamCoreAssigners` ghost state is checked only through those privileges.
+  Hazmat host observation additionally records every successful assignment,
+  including arguments and order across cores and repeated calls to one core.
+  Completed checkpoints mark the retained prefix on rollback. Final queues and
+  privileges are still compared independently. The model's `jamCoreAssigners`
+  ghost state is checked through those privileges.
 - Due assignments are flushed in due-slot/core order within the available
   allowance, retried after work reports using leftover gas, and otherwise
   carried into later blocks (§5.1). Assignment regression tests cover partial
