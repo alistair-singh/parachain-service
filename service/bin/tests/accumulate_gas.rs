@@ -59,9 +59,9 @@ mod gas {
 	/// Due `assign` flush for all 341 cores in one block.
 	pub const ALL_DUE_ASSIGNS: u64 = 57_282_516;
 	/// Marginal cost of a realistic destination's memo handler, per transfer.
-	pub const DEST_HANDLER_PER_TRANSFER: u64 = 20_691;
+	pub const DEST_HANDLER_PER_TRANSFER: u64 = 19_602;
 	/// Gas for one Ed25519 authorization.
-	pub const IS_AUTHORIZED_ED25519: u64 = 4_035_765;
+	pub const IS_AUTHORIZED_ED25519: u64 = 4_018_071;
 }
 
 /// A report admitted by the gas gate must leave 20% execution headroom.
