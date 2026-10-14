@@ -251,7 +251,7 @@ fn replay_input_works() {
 }
 
 #[test]
-#[ignore = "checks pinned internal streaming API against the Quint CLI; requires /dev/stdout"]
+#[ignore = "checks pinned internal streaming API against the Quint CLI"]
 fn stream_matches_cli_works() {
 	let stream = generator(1, 3, 2, 10).output().expect("stream generator");
 	assert!(stream.status.success());
@@ -261,6 +261,16 @@ fn stream_matches_cli_works() {
 	for (line, seed) in lines.into_iter().zip(["1", "4"]) {
 		let stream: Value = serde_json::from_str(line).unwrap();
 		assert_eq!(stream["seed"], seed);
+		// Quint writes ITF synchronously. A large trace sent to the captured
+		// stdout pipe can fail with EAGAIN, so give the CLI a regular file.
+		let output = env::temp_dir().join(format!(
+			"quint-cli-{}-{seed}-{}.itf.json",
+			std::process::id(),
+			std::time::SystemTime::now()
+				.duration_since(std::time::UNIX_EPOCH)
+				.unwrap()
+				.as_nanos()
+		));
 		let cli = Command::new("quint")
 			.current_dir(root())
 			.args([
@@ -279,14 +289,17 @@ fn stream_matches_cli_works() {
 				"--max-steps",
 				"10",
 				"--out-itf",
-				"/dev/stdout",
-				"--verbosity",
-				"0",
 			])
+			.arg(&output)
+			.args(["--verbosity", "0"])
 			.output()
 			.expect("Quint CLI");
+		let trace = fs::read(&output);
+		if output.exists() {
+			fs::remove_file(&output).expect("remove CLI trace");
+		}
 		assert!(cli.status.success(), "{}", String::from_utf8_lossy(&cli.stderr));
-		let mut cli: Value = serde_json::from_slice(&cli.stdout).unwrap();
+		let mut cli: Value = serde_json::from_slice(&trace.expect("read CLI trace")).unwrap();
 		for state in cli["states"].as_array_mut().unwrap() {
 			state.as_object_mut().unwrap().remove("#meta");
 		}
