@@ -17,7 +17,7 @@ cargo test -p parachain-service-bin --test quint_replay
 The generator uses the pinned model, TypeScript backend, and seed 1. It regenerates
 `combined`, `refine_fuzz`, `refine_errors`, `blocks`, `upgrades`, `log_pruning`, `kv`, `balances`, `lifecycle`,
 `assignments`, `validator_keys`, `outgoing`, `service_upgrades`, `mixed`, `gas`,
-`storage`, `host_mixed`, `services`, `service_preimages`, `service_management`, and `panic_recovery` scenarios,
+`storage`, `storage_recovery`, `host_mixed`, `services`, `service_preimages`, `service_management`, and `panic_recovery` scenarios,
 including the root minimal and stale-parent fixtures. Other historical fixtures
 are retained.
 JSON is compact and timestamp-free; use `just quint-fmt` to expand it for review
@@ -228,3 +228,19 @@ Rust Accumulate. `combined.qnt` and `combined/` contain end-to-end fixtures.
 `refine_errors/` supplies errors directly to accumulate. Regenerate fixtures with
 `scripts/generate-quint-replays.py`. All use the same parser and saved-failure
 replay entry point; see [FUZZING.md](FUZZING.md).
+
+## Storage recovery combinations
+
+The `storage_recovery` profile combines the independent storage-deposit oracle
+with sampled PVM exhaustion before the first checkpoint, inside either report,
+and after the final checkpoint. It checks head/KV and queue rejection,
+registration/forced-head metadata, validator staging, retained incoming credits,
+checkpointed state/free balance, and successful later retries. Expected state
+is calculated by applying the Quint storage oracle only through the selected
+report prefix; gas probes select cutoffs without supplying expected state.
+
+Focused fixtures sample five positions per interval. The opt-in generated test
+requires every recovery phase, metadata and head failures in interrupted
+invocations, and subsequent successful invocations. Nonempty validator
+finalization and other upward-message backstop sites remain follow-ups in
+[the coverage TODO](../../../../../QUINT_REPLAY_COVERAGE_TODO.md).

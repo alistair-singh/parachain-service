@@ -39,7 +39,7 @@ limits; separate Rust tests cover some excluded cases.
 
 ## 6 Storage failures and recovery combinations
 
-- [ ] TODO: Add `storage_recovery`: head, KV, incoming queue, registration/forced-head
+- [x] Add `storage_recovery`: head, KV, incoming queue, registration/forced-head
   metadata, and staging failures with exhaustion before, inside, and after report
   checkpoints. Check retained prefixes, incoming credits, free balance, and retries.
 - [ ] TODO: Extend this recovery profile to compact-encoded balance growth,
@@ -47,7 +47,7 @@ limits; separate Rust tests cover some excluded cases.
 - [ ] TODO: Cover nonempty validator finalization under constrained host balance.
 - [ ] TODO: Model low-balance failure at remaining upward-message write sites and
   mix those failures with gas recovery; never infer the oracle from Rust effects.
-- [ ] TODO: Require every recovery phase, head and metadata failures during interrupted
+- [x] Require every recovery phase, head and metadata failures during interrupted
   invocations, and later successful invocations in generated coverage assertions.
 
 ## 7 Upgrade migrations and transfer delivery

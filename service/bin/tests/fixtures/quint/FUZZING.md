@@ -20,7 +20,7 @@ Configuration:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `QUINT_FUZZ_PROFILE` | `fuzz` | `fuzz` for combined Refine → Accumulate inputs; `storage` for metadata/KV/queue failures; `code_storage` for code acquisition/announcement failures; `outgoing_boundary` for exact spendable-balance limits; `self_payment` for deferred self-credit; `designation` for privilege changes |
+| `QUINT_FUZZ_PROFILE` | `fuzz` | `fuzz` for combined Refine → Accumulate inputs; `storage` for metadata/KV/queue failures; `storage_recovery` for those failures combined with checkpoint exhaustion; `code_storage` for code acquisition/announcement failures; `outgoing_boundary` for exact spendable-balance limits; `self_payment` for deferred self-credit; `designation` for privilege changes |
 | `QUINT_FUZZ_TRACES` | `100` | Total traces across workers; `0` runs until failure/interruption |
 | `QUINT_FUZZ_STEPS` | `15` | Transitions per trace, 1–10000 |
 | `QUINT_FUZZ_WORKERS` | `1` | Independent Rust workers and generator processes |
@@ -453,3 +453,14 @@ corrupt the script, expected digest, expected accumulated state, and metadata.
 `refine_fuzz.qnt` remains a focused test-only generator for declaration ordering
 and message byte/count boundaries; it is not a selectable campaign profile.
 See the [adapter limits](../../../../../QUINT_REPLAY.md#combined-campaign).
+
+## Storage recovery campaign
+
+Set `QUINT_FUZZ_PROFILE=storage_recovery` to mix storage-deposit failures with
+pre-checkpoint, report, and final-checkpoint exhaustion and normal retries.
+The profile uses two reports, head/KV operations, metadata registration and head
+updates, validator staging, and zero to three arrivals. Raw saved traces select
+the middle of each interrupted interval by default; sampled replay can override
+that position using `replayGasSample`. The expected retained prefix comes from
+Quint, independently of gas calibration. This focused profile supplies work
+results directly and does not execute Refine.

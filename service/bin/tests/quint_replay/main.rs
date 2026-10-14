@@ -51,3 +51,5 @@ mod pre_checkpoint;
 mod refine;
 
 mod combined;
+
+mod storage_recovery;

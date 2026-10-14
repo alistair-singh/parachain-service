@@ -37,6 +37,7 @@ fn generator_profile(profile: &str, seed: u64, stride: u64, count: u64, steps: u
 		"self_payment" => "service/bin/tests/fixtures/quint/self_payment_fuzz.qnt",
 		"outgoing_boundary" => "service/bin/tests/fixtures/quint/outgoing_boundary_fuzz.qnt",
 		"storage" => "service/bin/tests/fixtures/quint/storage_fuzz.qnt",
+		"storage_recovery" => "service/bin/tests/fixtures/quint/storage_recovery.qnt",
 		"code_storage" => "service/bin/tests/fixtures/quint/code_storage_fuzz.qnt",
 		_ => panic!("unknown QUINT_FUZZ_PROFILE: {profile}"),
 	};
@@ -971,4 +972,34 @@ fn refine_generated_works() {
 	] {
 		assert!(outcomes.contains(expected), "missing {expected}: {outcomes:?}");
 	}
+}
+
+#[test]
+#[ignore = "checks storage failures with gas recovery; requires Node and Quint 0.32.0"]
+fn storage_recovery_generated_works() {
+	let output = generator_profile("storage_recovery", 1, 1, 10, 20).output().unwrap();
+	assert!(output.status.success());
+	let mut phases = std::collections::BTreeSet::new();
+	let mut metadata_failure = false;
+	let mut head_failure = false;
+	let mut resumed = false;
+	for line in String::from_utf8(output.stdout).unwrap().lines() {
+		let envelope: Value = serde_json::from_str(line).unwrap();
+		let mut interrupted = false;
+		for state in envelope["trace"]["states"].as_array().unwrap().iter().skip(1) {
+			let phase = state["replayInterrupt"]["#bigint"].as_str().unwrap();
+			phases.insert(phase.to_owned());
+			resumed |= interrupted && phase == "-1";
+			interrupted |= phase != "-1";
+			if phase != "-1" {
+				metadata_failure |= !state["replayFailedMessages"].as_array().unwrap().is_empty();
+				head_failure |= !state["replayFailedHeads"].as_array().unwrap().is_empty();
+			}
+		}
+		replay::document_trace(&envelope["trace"])
+			.unwrap_or_else(|e| panic!("seed {}: {e}", envelope["seed"]));
+	}
+	assert_eq!(phases, ["-2", "-1", "0", "1", "2"].map(str::to_owned).into());
+	assert!(metadata_failure && head_failure && resumed,
+		"missing mixed failure/retry coverage: metadata={metadata_failure}, head={head_failure}, resumed={resumed}");
 }
