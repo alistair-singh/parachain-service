@@ -90,9 +90,9 @@ pub fn state(
 	state_at(storage, current, codex, frame, now)
 }
 
-/// Due assignments must be in the future relative to the last completed
-/// always-accumulate phase. Rollback (and later external provision) cannot
-/// advance this watermark; all other state predicates still run normally.
+/// Fired assignments must be re-armed in the future relative to the last
+/// completed always-accumulate phase. Rollback (and later external provision)
+/// cannot advance this watermark; all other state predicates still run normally.
 pub fn state_at(
 	storage: &Storage,
 	current: &Value,
@@ -182,7 +182,9 @@ pub fn state_at(
 			("validation_code_in_registry", info.validation_code),
 			("announced_code_in_registry", info.announced_upgrade),
 		] {
-			if let Some(code) = code {
+			// A deregistering para's codes may have been rescued by another para,
+			// which drops it as referencer while its record still names them.
+			if let Some(code) = code.filter(|_| !info.is_deregistering) {
 				check(
 					registry
 						.get(&(validation_code_hash_bytes(&code.hash), code.len))
@@ -241,12 +243,20 @@ pub fn state_at(
 		frame,
 		&due,
 	)?;
-	check(
-		due.iter().all(|(_, slot)| *slot > now),
-		"pending_authorizer_apply_at_future",
-		frame,
-		&due,
-	)?;
+	// A due entry may stay cached when the gas ran out before reaching it, but
+	// one whose assign fired is dropped or re-armed into the future (§5.1).
+	for call in field(current, "lastStepAssigns")?
+		.as_array()
+		.ok_or("lastStepAssigns must be a list")?
+	{
+		let core = bounded_integer::<u16>(field(call, "core")?, "assigned core")?;
+		check(
+			due.iter().all(|(c, slot)| *c != core || *slot > now),
+			"fired_assign_not_left_due",
+			frame,
+			core,
+		)?;
+	}
 	for core in 0..CORE_COUNT as u16 {
 		let pending: Option<PendingAssign> =
 			read(storage, &storage_key(Tag::PendingAssigns, &core))?;

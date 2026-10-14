@@ -134,9 +134,14 @@ module host_invocation {
   // Unlike the isolated storage profile, this runs on the general campaign's
   // current state, including pending assignments, provided code, and old logs.
   // Unsupported backstop sites are guarded, never approximated as successes.
+  // An invocation stopped by an exhausted pool holds no more than the reports'
+  // declared gas, so no due assign fits the always-accumulate allowance (§5.1).
+  pure def hostAssignBudget(stop: bool): AssignBudget =
+    if (stop) { flush: 0, end: 0 } else FullAssignBudget
   def hostPrefix(packages: List[WorkResult], slot: int, incoming: List[IncomingTransfer],
-    limits: List[int], allowance: int): HostPackage = {
-    val due = accumulateBlock(svc, slot, List(), solicitedSet, FixedCodeLen, List(), foreignServices)
+    limits: List[int], allowance: int, assignBudget: AssignBudget): HostPackage = {
+    val due = accumulateBlockBudgeted(svc, slot, List(), solicitedSet, FixedCodeLen, List(),
+      foreignServices, assignBudget)
     val proposed = applyIncomingTransfers(due.state, incoming)
     val credited = { ...due.state, jamAccount: proposed.jamAccount }
     val available = allowance + incoming.foldl(0, (n, t) => n + t.amount)
@@ -162,8 +167,11 @@ module host_invocation {
   action hostInvocation(packages: List[WorkResult], slot: int, incoming: List[IncomingTransfer],
     limits: List[int], allowance: int, interrupt: int): bool = {
     val end = if (interrupt < 0) packages.length() else interrupt
-    val out = hostPrefix(packages.slice(0, end), slot, incoming, limits.slice(0, end), allowance)
-    val due = accumulateBlock(svc, slot, List(), solicitedSet, FixedCodeLen, List(), foreignServices)
+    val assignBudget = hostAssignBudget(interrupt >= 0)
+    val out = hostPrefix(packages.slice(0, end), slot, incoming, limits.slice(0, end), allowance,
+      assignBudget)
+    val due = accumulateBlockBudgeted(svc, slot, List(), solicitedSet, FixedCodeLen, List(),
+      foreignServices, assignBudget)
     all {
       out.safe,
       // Scheduler delivery is outside guest execution and checkpoint rollback.
@@ -173,6 +181,7 @@ module host_invocation {
       foreignServices' = out.foreign, prevSvc' = svc, now' = slot,
       solicitedSet' = out.solicited, jamStagingSet' = jamStagingSet,
       lastStepWorkResults' = packages, lastStepAssigns' = due.assigns,
+      lastStepAssignBudget' = assignBudget,
       lastHeadRoot' = if (interrupt < 0) headCommitment(svc, out.state) else None,
       logPrunedBelow' = out.pruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2)),
       replayIncoming' = incoming, replayGasLimits' = limits, replayInterrupt' = interrupt, replayPanic' = false,

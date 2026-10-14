@@ -55,12 +55,6 @@ module service_inputs {
     | Solicit(p) => if (p.target == Service(ParachainServiceId))
         { ...acc, logs: acc.logs.append(ServiceSolicitFailed({ service: ParachainServiceId, error: SolicitNotSupervised })) }
       else applyUpwardMessage(acc, caller, codeLen, slot, anchor, msg)
-    | Forget(p) => if (p.target == Service(ParachainServiceId))
-        { ...acc, logs: acc.logs.append(ServiceStoreFailed({ service: ParachainServiceId, error: StoreNotSupervised })) }
-      else applyUpwardMessage(acc, caller, codeLen, slot, anchor, msg)
-    | RemoveServiceStorage(p) => if (p.service == ParachainServiceId)
-        { ...acc, logs: acc.logs.append(ServiceStoreFailed({ service: p.service, error: StoreNotSupervised })) }
-      else applyUpwardMessage(acc, caller, codeLen, slot, anchor, msg)
     | SetServiceSupervisor(p) => if (p.service == ParachainServiceId)
         { ...acc, logs: acc.logs.append(ServiceSupervisorFailed({ service: p.service,
           error: if (p.newSupervisor == ParachainServiceId or acc.foreign.keys().contains(p.newSupervisor))

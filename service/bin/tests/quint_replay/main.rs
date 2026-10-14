@@ -4,12 +4,11 @@ mod blocks;
 mod code_storage;
 #[path = "../common/mod.rs"]
 mod common;
+mod designation;
 mod fuzz;
 mod gas;
-mod instruction_gas;
-mod panic_recovery;
 mod host_mixed;
-mod storage;
+mod instruction_gas;
 mod itf;
 mod kv;
 mod lifecycle;
@@ -17,15 +16,16 @@ mod log_pruning;
 mod mixed;
 mod outgoing;
 mod outgoing_boundaries;
-mod self_payments;
-mod service_upgrades;
-mod service_preimages;
-mod service_management;
-mod services;
+mod panic_recovery;
 mod refine_errors;
+mod self_payments;
+mod service_management;
+mod service_preimages;
+mod service_upgrades;
+mod services;
+mod storage;
 mod upgrades;
 mod validator_keys;
-mod designation;
 
 #[test]
 fn minimal_replay_works() {
@@ -45,5 +45,5 @@ fn refine_error_replay_works() {
 		.expect("a logged Refine and a gray-paper work error should both replay");
 }
 
-mod pre_checkpoint;
 mod final_checkpoint;
+mod pre_checkpoint;

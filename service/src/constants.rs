@@ -15,10 +15,10 @@ pub const MAX_LOOKUP_AGE: Timeslot = 24 * 3600 / 6;
 pub const EXPUNGE_PERIOD: Timeslot = MAX_LOOKUP_AGE + 4800;
 
 /// §3.1 — per-parachain log byte budget (exact encoded size of all entries).
-pub const PARACHAIN_LOG_BYTE_CAP: usize = 64 * 1024;
-
-/// §3.3 — service-chosen cap on the auth-trace bytes stored in `parachain_log`.
-pub const STORED_AUTH_TRACE_CAP: usize = 256;
+///
+/// Re-exported from the shared interface crate: the entry types and their caps live
+/// together so a runtime decoding the log from its JAM state proof uses the same bound.
+pub use parachain_service_core::log::{PARACHAIN_LOG_BYTE_CAP, STORED_AUTH_TRACE_CAP};
 
 /// §3.1 — the JAM authorizer queue holds exactly 80 hashes (Gray Paper `C_authqueuesize`).
 pub const AUTHORIZER_QUEUE_LEN: usize = 80;
@@ -53,3 +53,14 @@ pub const REPORT_BASE_GAS: u64 = 5_000_000;
 /// `SetValidatorKeys` against a large staging buffer) can exceed it.
 /// PROVISIONAL: must be benchmarked per variant; FIXME before production.
 pub const UPWARD_MESSAGE_GAS: u64 = 250_000;
+
+/// §5.1 due-assign flush — the cost of applying one due assign: reading its
+/// cached queue, the JAM `assign` of a cycle-expanded 80-hash queue, and
+/// re-caching a rotating queue. PROVISIONAL: must be benchmarked; FIXME before
+/// production.
+pub const DUE_ASSIGN_GAS: u64 = 1_000_000;
+
+/// §5.1 due-assign flush — the fixed cost of one flush: reading and rewriting
+/// the dirty-core index and logging rejections in the Coretime chain's log.
+/// PROVISIONAL: must be benchmarked; FIXME before production.
+pub const DUE_ASSIGN_FLUSH_BASE_GAS: u64 = 5_000_000;

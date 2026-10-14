@@ -2,10 +2,8 @@ use super::itf::replay;
 
 #[test]
 fn balance_reservations_works() {
-	replay::trace(include_str!(
-		"../fixtures/quint/balances/balance_reservations_works.itf.json"
-	))
-	.expect("balance reservations and rejected solicitations should match Quint");
+	replay::trace(include_str!("../fixtures/quint/balances/balance_reservations_works.itf.json"))
+		.expect("balance reservations and rejected solicitations should match Quint");
 }
 
 #[test]

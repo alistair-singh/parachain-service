@@ -26,8 +26,10 @@ fn phase_interiors_works() {
 
 #[test]
 fn host_boundaries_works() {
+	// An exhausted pool leaves no allowance, so the due flush never reaches an
+	// `assign` (§5.1); sample around its dirty-index read instead.
 	for (fixture, frame, call) in [
-		(DUE, 2, "assign"),
+		(DUE, 2, "read"),
 		(include_str!("../fixtures/quint/pre_checkpoint/incoming_works.itf.json"), 1, "write"),
 	] {
 		for side in ["before", "after"] {

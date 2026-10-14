@@ -49,7 +49,7 @@ module storage_metadata_inputs {
   action forcedCodeBlock(margin: int): bool = {
     val target = MkParaId(4)
     val registered = parachainSetStateBalance(svc, target, 1073741823).state
-    val acquired = registered.addReferencer(target, { hashBytes: 777 }, FixedCodeLen).state
+    val acquired = registered.addReferencer(target, { hashBytes: 777 }, FixedCodeLen, now + 1).state
     val budget = hostCost(acquired) - hostCost(svc) + margin
     storageInvocation(budget, List(metadataWork(CoretimeParaId, List(
       ParachainSetStateBalance({ paraId: target, newTotal: 1073741823 }),

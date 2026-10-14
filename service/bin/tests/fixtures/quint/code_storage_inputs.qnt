@@ -18,7 +18,7 @@ module code_storage_inputs {
   var replayHostTrap: bool
   // Diagnostic coverage label, calculated from footprints before execution.
   var replayCodeFailure: str
-  type CodeHost = { state: ParachainServiceState, free: int,
+  type CodeHost = { state: ParachainServiceState, free: int, slot: int,
     logs: List[AccumulateLog], failure: str, trap: bool }
   pure def codeReject(h: CodeHost, label: str): CodeHost = { ...h, failure: label }
   pure def codeWrite(h: CodeHost, proposed: ParachainServiceState, label: str): CodeHost = {
@@ -27,7 +27,7 @@ module code_storage_inputs {
     else { ...h, state: proposed, free: h.free - delta }
   }
   pure def acquire(h: CodeHost, para: ParaId, hash: Hash, len: int): CodeHost = {
-    val out = h.state.addReferencer(para, hash, len)
+    val out = h.state.addReferencer(para, hash, len, h.slot)
     val charged = { ...h.state, parachains: out.state.parachains }
     val registered = { ...charged, preimageRegistry: out.state.preimageRegistry }
     val chargeCost = hostCost(charged) - hostCost(h.state)
@@ -67,7 +67,7 @@ module code_storage_inputs {
   action codeInit = all { init, noTransfers, noDesignation, noGas,
     replayHostTrap' = false, replayCodeFailure' = "" }
   action codeBlock(allowance: int, msg: UpwardMessage): bool = {
-    val start = { state: svc, free: allowance, logs: List(), failure: "", trap: false }
+    val start = { state: svc, free: allowance, slot: now + 1, logs: List(), failure: "", trap: false }
     val applied = codeMessage(start, msg)
     val logged = applied.state.appendAccumulateLogs(CoretimeParaId, now + 1, applied.logs)
     val saved = codeWrite(applied, logged, applied.failure)
@@ -79,7 +79,7 @@ module code_storage_inputs {
       lookupAnchor: 0, upwardMessages: List(msg) })), authTrace: 0 }
     all {
       svc' = out.state, prevSvc' = svc, now' = now + 1,
-      lastStepWorkResults' = List(wr), lastStepAssigns' = List(),
+      lastStepWorkResults' = List(wr), lastStepAssigns' = List(), lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = if (applied.trap) None else headCommitment(svc, out.state),
       solicitedSet' = solicitedSet, jamStagingSet' = jamStagingSet,
       foreignServices' = foreignServices, logPrunedBelow' = logPrunedBelow,

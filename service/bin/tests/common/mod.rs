@@ -242,8 +242,10 @@ pub fn err_digest(para: ParaId, code: &[u8], error: RefineLog) -> ParachainWorkD
 }
 
 /// Accumulate gas a test work item declares unless a test picks its own: enough
-/// to clear the §5.1 gas gate whatever the digest carries.
-pub const REPORT_GAS: u64 = u64::MAX;
+/// to clear the §5.1 gas gate for the digests tests build. The mock's pool is
+/// fixed, so what reports declare comes out of the always-accumulate allowance
+/// the service derives for due assigns (§5.1).
+pub const REPORT_GAS: u64 = 1_000_000_000;
 
 /// Wrap a digest as the work-item operand accumulate receives.
 pub fn work_item(digest: &ParachainWorkDigest) -> AccumulateItem {

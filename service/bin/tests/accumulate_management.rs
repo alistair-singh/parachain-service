@@ -205,7 +205,7 @@ fn forced_set_validation_code_leaves_announced_works() {
 	};
 	let digest = ok_digest(NEW_PARA, NEW_CODE, b"para-genesis", b"head-1", vec![msg], 0);
 	let (_, mut storage, _) = accumulate_block(storage, vec![work_item(&digest)], NOW);
-	storage.provide(NOW, SVC, ANN_CODE).expect("solicited in the same block");
+	storage.provide(0, SVC, ANN_CODE).expect("solicited in the same block");
 	storage.commit();
 
 	let announce = UpwardMessage::RequestCodeUpgrade {

@@ -68,8 +68,8 @@ fn forget_msg(code: &[u8]) -> UpwardMessage {
 
 /// Solicit `code` for `PARA` in its own candidate (validated with the active
 /// `CODE`), then provide the blob to JAM so a later `Announcement` sees it as
-/// available. `parent`/`next` are the candidate's heads; the digest's lookup
-/// anchor is 0, which a provided preimage is available at.
+/// available. `parent`/`next` are the candidate's heads. The blob counts as
+/// provided at slot 0, so it is available at the digests' lookup anchor 0.
 fn solicit_and_provide(
 	storage: jam_node::vm::Storage,
 	parent: &[u8],
@@ -85,9 +85,43 @@ fn solicit_and_provide(
 	};
 	let digest = ok_digest(PARA, CODE, parent, next, vec![msg], 0);
 	let (_, mut storage, _) = accumulate_block(storage, vec![work_item(&digest)], slot);
-	storage.provide(slot, SVC, code).expect("solicited in the same block");
+	storage.provide(0, SVC, code).expect("solicited in the same block");
 	storage.commit();
 	storage
+}
+
+#[test]
+fn announce_before_provision_errors() {
+	// §5.2: the code must have been available at the announcing report's lookup
+	// anchor, not merely by the time the report is accumulated.
+	let storage = fresh_storage(|s| seed_para(s, PARA, b"genesis", CODE, RICH));
+	let new_ref = code_ref(NEW_CODE);
+	let msg = UpwardMessage::Solicit {
+		target: Target::Parachain(PARA),
+		hash: validation_code_hash_bytes(&new_ref.hash),
+		len: new_ref.len.into(),
+	};
+	let digest = ok_digest(PARA, CODE, b"genesis", b"head-1", vec![msg], 0);
+	let (_, mut storage, _) = accumulate_block(storage, vec![work_item(&digest)], NOW);
+	storage.provide(NOW, SVC, NEW_CODE).expect("solicited in the same block");
+	storage.commit();
+
+	let early = ok_digest(PARA, CODE, b"head-1", b"head-2", vec![announce_msg(NEW_CODE)], NOW - 1);
+	let (_, storage, _) = accumulate_block(storage, vec![work_item(&early)], NOW + 1);
+
+	assert_eq!(para_info(&storage, PARA).unwrap().announced_upgrade, None);
+	assert_eq!(
+		accumulate_logs(&storage, PARA),
+		vec![AccumulateLog::CodeUpgradeNotAvailable {
+			hash: validation_code_hash_bytes(&new_ref.hash),
+			len: new_ref.len.into(),
+		}]
+	);
+
+	let timely = ok_digest(PARA, CODE, b"head-2", b"head-3", vec![announce_msg(NEW_CODE)], NOW);
+	let (_, storage, _) = accumulate_block(storage, vec![work_item(&timely)], NOW + 2);
+
+	assert_eq!(para_info(&storage, PARA).unwrap().announced_upgrade, Some(new_ref));
 }
 
 #[test]
@@ -204,7 +238,7 @@ fn announcement_of_other_paras_code_errors() {
 	};
 	let digest = ok_digest(OTHER, b"para-2000-code", b"genesis-2", b"head-2-1", vec![msg], 0);
 	let (_, mut storage, _) = accumulate_block(storage, vec![work_item(&digest)], NOW);
-	storage.provide(NOW, SVC, NEW_CODE).expect("solicited by OTHER");
+	storage.provide(0, SVC, NEW_CODE).expect("solicited by OTHER");
 	storage.commit();
 
 	let digest = ok_digest(PARA, CODE, b"genesis", b"head-1", vec![announce_msg(NEW_CODE)], 0);
@@ -429,6 +463,7 @@ fn service_upgrade_missing_preimage_errors() {
 	let storage =
 		fresh_storage(|s| seed_para(s, ASSET_HUB_PARA_ID, b"ah-genesis", b"ah-code", RICH));
 	let msg = UpwardMessage::UpgradeService {
+		service: None,
 		code_hash: [0xEE; 32],
 		len: 1000.into(),
 		min_acc_gas: 100,
@@ -462,6 +497,7 @@ fn rejected_candidate_cannot_use_privileged_calls_works() {
 	});
 	let new_code_hash = jam_std_common::hash_raw(&new_service_code);
 	let msg = UpwardMessage::UpgradeService {
+		service: None,
 		code_hash: new_code_hash,
 		len: (new_service_code.len() as u32).into(),
 		min_acc_gas: 100,
@@ -493,6 +529,7 @@ fn service_upgrade_works() {
 	});
 	let code_hash = jam_std_common::hash_raw(&new_service_code);
 	let msg = UpwardMessage::UpgradeService {
+		service: None,
 		code_hash,
 		len: (new_service_code.len() as u32).into(),
 		min_acc_gas: 100,
@@ -538,6 +575,7 @@ fn upgrade_storage(
 fn upgrade_service(storage: jam_node::vm::Storage, len: u32) -> (Vec<AccumulateLog>, bool) {
 	let code_hash = hash_raw(NEW_SERVICE_CODE);
 	let msg = UpwardMessage::UpgradeService {
+		service: None,
 		code_hash,
 		len: len.into(),
 		min_acc_gas: 100,

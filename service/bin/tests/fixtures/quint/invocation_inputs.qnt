@@ -36,10 +36,13 @@ module invocation_inputs {
       if ((interrupt < 0 or i < interrupt) and limits[i] >= reportGas(packages[i]))
         acc.append(packages[i]) else acc)
 
+    // An exhausted pool holds no more than the reports' declared gas, so no
+    // due assign fits the always-accumulate allowance and all stay cached (§5.1).
+    val assignBudget = if (interrupt >= 0 and not(panic)) { flush: 0, end: 0 } else FullAssignBudget
     // Evaluate the pinned phases in runtime order, without inserting a second
     // invocation between incoming transfers and work reports.
-    val prefix = accumulateBlock(svc, slot, List(), solicitedSet,
-      FixedCodeLen, List(), foreignServices)
+    val prefix = accumulateBlockBudgeted(svc, slot, List(), solicitedSet,
+      FixedCodeLen, List(), foreignServices, assignBudget)
     val arrived = applyIncomingTransfers(prefix.state, incoming)
     val out = replayAll(arrived, solicitedSet, List(), FixedCodeLen,
       slot, applied, foreignServices)
@@ -62,6 +65,7 @@ module invocation_inputs {
       prevSvc' = svc,
       lastStepWorkResults' = packages,
       lastStepAssigns' = prefix.assigns.concat(out.jamAssigns),
+      lastStepAssignBudget' = assignBudget,
       lastHeadRoot' = if (interrupt < 0) headCommitment(svc, out.state) else None,
       logPrunedBelow' = out.logPruned.foldl(logPrunedBelow,
         (m, pair) => m.put(pair._1, pair._2))
@@ -78,6 +82,7 @@ module invocation_inputs {
     solicitedSet' = solicitedSet, jamStagingSet' = jamStagingSet,
     logPrunedBelow' = logPrunedBelow,
     lastStepWorkResults' = packages, lastStepAssigns' = List(), lastHeadRoot' = None,
+    lastStepAssignBudget' = { flush: 0, end: 0 },
     replayIncoming' = incoming, replayInterrupt' = -2, replayPanic' = false,
     replayGasLimits' = packages.foldl(List(), (limits, _) => limits.append(UnlimitedGas)),
     replayDesignate' = List(), replayTransfers' = List(), replayCreations' = List(),

@@ -135,7 +135,7 @@ None of the 32 invariants in `quint/invariants.qnt` is asserted on the Rust side
 cheap to port against real storage and would catch derived-constant drift of the kind that
 made Asset Hub's baseline under-reserve its pending-assign queues:
 `used_balance_consistency`, `pending_authorizer_cores_consistent`,
-`pending_authorizer_apply_at_future`, `parachain_log_within_capacity`.
+`fired_assign_not_left_due`, `parachain_log_within_capacity`.
 
 ## M-11: the model decides the §6.5 supervised-service outcomes; Rust can only refuse
 

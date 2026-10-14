@@ -14,6 +14,7 @@ module service_upgrades_replay {
   import service_inputs.* from "./service_inputs"
   import outgoing_inputs.* from "./outgoing_inputs"
   import service_upgrade_inputs.* from "./service_upgrade_inputs"
+  pure def isProvided(st: RequestStatus): bool = match st { | Provided(_) => true | _ => false }
   action start = all { outgoingInit, replayDesignate' = List(), replayMinAccGas' = 100 }
   def work(p: ParaId, parent: int, msgs: List[UpwardMessage]): WorkResult = {
     val h = if (p == AssetHubParaId) 2 else 1
@@ -36,6 +37,7 @@ module service_upgrades_replay {
       jamStagingSet' = if (out.staging == List()) jamStagingSet else out.staging,
       solicitedSet' = out.solicited, lastStepWorkResults' = out.results,
       lastStepAssigns' = out.assigns, lastHeadRoot' = out.headRoot,
+      lastStepAssignBudget' = FullAssignBudget,
       foreignServices' = out.foreign,
       logPrunedBelow' = out.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
     }
@@ -66,7 +68,7 @@ module service_upgrades_replay {
   run missing_and_wrong_length_works = start.then(fund)
     .then(hub(upgrade(a, 11, 22)))
     .then(ready(a)).then(hub(upgrade(a, 33, 44))).then(supplied(a))
-    .then(hub(UpgradeService({ codeHash: a, len: ServiceCodeLen + 1, minAccGas: 55, minMemoGas: 66 })))
+    .then(hub(UpgradeService({ service: None, codeHash: a, len: ServiceCodeLen + 1, minAccGas: 55, minMemoGas: 66 })))
     .then(check(svc.serviceCodeHash == { hashBytes: 0 } and replayMinAccGas == 100))
     .then(hub(upgrade(a, 0, 0))).then(block(List()))
   run unreferenced_works = start.then(fund)
@@ -80,7 +82,7 @@ module service_upgrades_replay {
     .then(ready(a)).then(hub(upgrade(a, 33, 44))).then(block(List()))
   run running_code_protected_works = start.then(fund).then(ready(a)).then(supplied(a))
     .then(hub(upgrade(a, 11, 22))).then(hub(forgetCode(a)))
-    .then(check(svc.preimageStatus.get((a, ServiceCodeLen)) == Provided))
+    .then(check(isProvided(svc.preimageStatus.get((a, ServiceCodeLen)))))
     .then(ready(b)).then(supplied(b)).then(hub(upgrade(b, 33, 44)))
     .then(hub(forgetCode(a))).then(ready(a)).then(hub(upgrade(a, 55, 66)))
     .then(block(List()))
@@ -93,7 +95,7 @@ module service_upgrades_replay {
     .then(block(List(work(AssetHubParaId, svc.paraInfo(AssetHubParaId).headData,
       List(upgrade(a, 11, 22), upgrade(b, 33, 44))),
       work(AssetHubParaId, svc.paraInfo(AssetHubParaId).headData + 1,
-        List(upgrade(a, 55, 66), UpgradeService({ codeHash: b, len: ServiceCodeLen + 1,
+        List(upgrade(a, 55, 66), UpgradeService({ service: None, codeHash: b, len: ServiceCodeLen + 1,
           minAccGas: 77, minMemoGas: 88 }))))))
     .then(check(svc.serviceCodeHash == a and replayMinAccGas == 55 and svc.jamAccount.minMemoGas == 66))
     .then(block(List()))
@@ -106,6 +108,6 @@ module service_upgrades_replay {
     .then(ready(b)).then(supplied(b))
     .then(block(List(work(AssetHubParaId, svc.paraInfo(AssetHubParaId).headData,
       List(upgrade(a, 11, 22), forgetCode(a), upgrade(b, 33, 44), forgetCode(a), forgetCode(b))))))
-    .then(check(svc.serviceCodeHash == b and svc.preimageStatus.get((b, ServiceCodeLen)) == Provided))
+    .then(check(svc.serviceCodeHash == b and isProvided(svc.preimageStatus.get((b, ServiceCodeLen)))))
     .then(block(List()))
 }

@@ -48,18 +48,18 @@ impl PreimageRegistry {
 	}
 
 	/// §5.2 availability: whether JAM's `query(hash, len)` reports the preimage
-	/// as usable for lookup AT timeslot `anchor`. Mirrors the Quint model's
-	/// `preimageAvailableAt` (state.qnt): absent or `Unprovided` -> `false`,
-	/// `Provided` / `Rerequested` -> `true`, `Unrequested(y)` -> `anchor < y`
-	/// (it was available until it was unrequested at `y`).
+	/// as provided or re-requested, and it became available at or before
+	/// `anchor`. Mirrors the Quint model's `preimageAvailableAt`
+	/// (code_upgrades.qnt).
 	pub fn is_available_at(hash: &Hash, len: u32, anchor: Timeslot) -> bool {
 		match query(hash, len as usize) {
-			Some(LookupRequestStatus::Provided { .. }) |
-			Some(LookupRequestStatus::Rerequested { .. }) => true,
-			Some(LookupRequestStatus::Unrequested { unrequested_since, .. }) => {
-				anchor < unrequested_since
+			Some(LookupRequestStatus::Provided { since }) => since <= anchor,
+			Some(LookupRequestStatus::Rerequested { rerequested_since, .. }) => {
+				rerequested_since <= anchor
 			},
-			Some(LookupRequestStatus::Unprovided) | None => false,
+			Some(LookupRequestStatus::Unrequested { .. }) |
+			Some(LookupRequestStatus::Unprovided) |
+			None => false,
 		}
 	}
 }

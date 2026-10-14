@@ -65,7 +65,8 @@ fn host_budget_works() {
 
 #[test]
 fn changed_target_errors() {
-	for message in 0..2 {
+	// A `Forget` on an unsupervised service is a silent no-op whatever the target.
+	for message in 0..1 {
 		let mut trace: Value = serde_json::from_str(REFUSALS).unwrap();
 		// The oracle expects UnknownService; service 7 exists and must instead
 		// produce NotSupervised, with no preimage effects in either case.
@@ -78,13 +79,11 @@ fn changed_target_errors() {
 #[test]
 fn changed_refusal_log_errors() {
 	let path = "/states/1/svc/parachainLog/#map/0/1/0/#tup/1/value";
-	for message in 0..2 {
+	// Only the `Solicit` refuses; the `Forget` is a silent no-op.
+	for message in 0..1 {
 		for (field, value) in [
 			("service", json!({"tag":"MkServiceId", "value":{"#bigint":"7"}})),
-			(
-				"error",
-				json!({"tag": if message == 0 { "SolicitNotSupervised" } else { "StoreNotSupervised" }, "value":{"#tup":[]}}),
-			),
+			("error", json!({"tag": "SolicitNotSupervised", "value":{"#tup":[]}})),
 		] {
 			let mut trace: Value = serde_json::from_str(REFUSALS).unwrap();
 			trace.pointer_mut(path).unwrap()[message]["value"][field] = value;

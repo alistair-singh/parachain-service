@@ -322,8 +322,18 @@ fn forget_rescued_three_steps_works() {
 	assert_eq!(
 		accumulate_logs(&storage, OTHER),
 		vec![
-			AccumulateLog::ForgetAgainAt { hash, len, due: first_due },
-			AccumulateLog::ForgetAgainAt { hash, len, due: second_due },
+			AccumulateLog::ForgetAgainAt {
+				target: Target::Parachain(OTHER),
+				hash,
+				len,
+				due: first_due
+			},
+			AccumulateLog::ForgetAgainAt {
+				target: Target::Parachain(OTHER),
+				hash,
+				len,
+				due: second_due
+			},
 		]
 	);
 }
@@ -383,7 +393,7 @@ fn solicit_announced_code_is_noop_works() {
 	let storage = fresh_storage(|s| seed_para(s, PARA, b"genesis", CODE, RICH));
 	let digest = ok_digest(PARA, CODE, b"genesis", b"head-1", vec![solicit.clone()], 0);
 	let (_, mut storage, _) = accumulate_block(storage, vec![work_item(&digest)], NOW);
-	storage.provide(NOW, SVC, NEW_CODE).expect("solicited in the same block");
+	storage.provide(0, SVC, NEW_CODE).expect("solicited in the same block");
 	storage.commit();
 	let announce = UpwardMessage::RequestCodeUpgrade {
 		hash: new_ref.hash,
@@ -446,7 +456,7 @@ fn forget_announced_code_refused_works() {
 	};
 	let digest = ok_digest(PARA, CODE, b"genesis", b"head-1", vec![msg], 0);
 	let (_, mut storage, _) = accumulate_block(storage, vec![work_item(&digest)], NOW);
-	storage.provide(NOW, SVC, NEW_CODE).expect("solicited in the same block");
+	storage.provide(0, SVC, NEW_CODE).expect("solicited in the same block");
 	storage.commit();
 
 	let announce = UpwardMessage::RequestCodeUpgrade {

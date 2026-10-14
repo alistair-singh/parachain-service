@@ -68,13 +68,15 @@ module storage_inputs {
 
   // Model operations supply the proposed state. The independent host footprint
   // decides whether a single metadata write commits; failures have no log.
-  pure def metadata(h: Host, msg: UpwardMessage, reportIndex: int, messageIndex: int): Host = {
+  pure def metadata(h: Host, msg: UpwardMessage, reportIndex: int, messageIndex: int,
+    slot: int): Host = {
     // Forced code first acquires its reference. Restrict generated budgets to
     // fund that acquisition, then independently reject the final ParaInfo write.
     // The reference and its charge must survive that final-write failure.
     val acquired = match msg {
       | ParachainSetValidationCode(p) => if (h.state.isLive(p.paraId))
-          h.state.addReferencer(p.paraId, p.newValidationCode.hash.asPreimage(), p.newValidationCode.len).state
+          h.state.addReferencer(p.paraId, p.newValidationCode.hash.asPreimage(), p.newValidationCode.len,
+            slot).state
           else h.state
       | _ => h.state
     }
@@ -129,7 +131,7 @@ module storage_inputs {
                   { ...a, errors: a.errors.append(KVWrite(kv.key[0])) }
                 else { ...a, host: { ...write(a.host, key, footprint), state: applied.state } }
               }
-              | _ => { ...a, host: metadata(a.host, ok.upwardMessages[m], index, m) }
+              | _ => { ...a, host: metadata(a.host, ok.upwardMessages[m], index, m, slot) }
             })
           appendLog(done.host, slot, done.errors)
         }
@@ -164,7 +166,7 @@ module storage_inputs {
       (a, i) => report(a, packages[i], i, now + 1))
     all {
       svc' = out.state, prevSvc' = svc, now' = now + 1,
-      lastStepWorkResults' = packages, lastStepAssigns' = List(),
+      lastStepWorkResults' = packages, lastStepAssigns' = List(), lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = headCommitment(svc, out.state),
       solicitedSet' = solicitedSet, jamStagingSet' = jamStagingSet,
       foreignServices' = foreignServices, logPrunedBelow' = logPrunedBelow,

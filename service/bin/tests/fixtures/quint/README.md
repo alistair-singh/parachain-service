@@ -72,6 +72,13 @@ JAM balances, installed code lengths, and upgrade gas-setting mismatches are rej
   The vendored host exposes only final mutations, so overwritten intermediate
   calls and ordering between independent cores cannot be compared. The model's
   `jamCoreAssigners` ghost state is checked only through those privileges.
+- Due-assign budgets (`lastStepAssignBudget`) are realized through gas. The
+  mock's pool is fixed, and the service takes whatever the items did not declare
+  as its always-accumulate allowance, so replay declares no more report gas than
+  the gate needs. Completed invocations use `FullAssignBudget`. An invocation
+  stopped by an exhausted pool has no allowance left, so its wrappers flush no
+  due assign and the late flush never commits; instruction-gas calibration runs
+  in that regime too. Partial budgets are covered by `accumulate_assigns.rs`.
 - Incoming-transfer replay requires explicit `replayIncoming` operands and an
   initially empty queue. Frames may carry arrivals and work reports together;
   replay credits arrivals before one invocation containing both input types. Regular-balance arrivals are supported; supervisor

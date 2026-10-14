@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use jam_node::vm::Storage;
 use parachain_service_bin::mock::MOCK_SERVICE_ID;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::replay::*;
 

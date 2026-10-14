@@ -14,10 +14,10 @@ use codec::{Decode, Encode};
 pub use jam_types::Slot as Timeslot;
 /// A 32-byte hash, layout-compatible with `jam_types::Hash`.
 pub type Hash = [u8; 32];
-/// A JAM service identifier (`jam_types::ServiceId`).
-pub use jam_types::ServiceId;
 /// A JAM core index (`jam_types::CoreIndex`).
 pub use jam_types::CoreIndex;
+/// A JAM service identifier (`jam_types::ServiceId`).
+pub use jam_types::ServiceId;
 /// Key of one `incoming_transfers` bucket: a `u64` the service allocates by
 /// incrementing, deliberately unrelated to the arrival timeslot (spec §3.1).
 pub type BucketId = u64;

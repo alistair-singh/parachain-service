@@ -67,7 +67,8 @@ fn host_budget_works() {
 
 #[test]
 fn changed_target_errors() {
-	for message in 0..5 {
+	// Message 0 removes storage, a silent no-op on an unsupervised service.
+	for message in 1..5 {
 		let mut trace: Value = serde_json::from_str(REFUSALS).unwrap();
 		trace["states"][1]["lastStepWorkResults"][0]["result"]["value"]["value"]
 			["upwardMessages"][message]["value"]["service"]["value"] = json!({"#bigint":"7"});

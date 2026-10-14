@@ -1,6 +1,6 @@
 //! Full-prefix Quint oracle: effects survive, invocation fails without a commitment.
 use super::itf::replay;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 const RETAINED: &str =
 	include_str!("../fixtures/quint/final_checkpoint/retained_effects_works.itf.json");
@@ -45,7 +45,6 @@ fn retained_effects_errors() {
 	for (key, expected) in [
 		("replayTransfers", "replayTransfers differs"),
 		("replayCreations", "creation set differs"),
-		("lastStepAssigns", "assign"),
 	] {
 		let mut trace = trace("replayGasSample", json!({"#bigint": "500000"}));
 		assert!(!trace["states"][2][key].as_array().unwrap().is_empty());
@@ -65,11 +64,9 @@ fn retained_state_errors() {
 #[test]
 fn completed_invocation_errors() {
 	let trace = trace("replayInvocationGas", json!({"#bigint": "5000000000"}));
-	assert!(
-		replay::document_trace(&trace)
-			.unwrap_err()
-			.contains("expected checkpoint NotEnoughGas")
-	);
+	assert!(replay::document_trace(&trace)
+		.unwrap_err()
+		.contains("expected checkpoint NotEnoughGas"));
 }
 
 #[test]

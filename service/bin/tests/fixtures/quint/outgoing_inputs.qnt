@@ -12,14 +12,14 @@ module outgoing_inputs {
   var replayTransfers: List[TransferOutArgs]
   action noOutgoing = all { replayTransfers' = List(), noCreations }
   pure def destination(id: ServiceId, gas: int): ForeignService = {
-    supervisor: id, supervisorCreated: 0, created: 0,
+    supervisor: id, supervisorCreated: 0, created: 0, codeHash: { hashBytes: 0 },
     requests: Map(), storage: Map(),
     account: { balance: 1000000000, supervisorBalance: 0, minMemoGas: gas }
   }
   action outgoingInit = all {
     svc' = initialState, prevSvc' = initialState, now' = 0,
     jamStagingSet' = List(), solicitedSet' = Set(), lastStepWorkResults' = List(),
-    lastStepAssigns' = List(), lastHeadRoot' = None, logPrunedBelow' = Map(),
+    lastStepAssigns' = List(), lastStepAssignBudget' = { flush: 0, end: 0 }, lastHeadRoot' = None, logPrunedBelow' = Map(),
     foreignServices' = Map(MkServiceId(0) -> destination(MkServiceId(0), 100),
       MkServiceId(7) -> destination(MkServiceId(7), 200)), noOutgoing
   }
