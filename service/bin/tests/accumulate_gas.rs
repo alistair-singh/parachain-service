@@ -62,7 +62,7 @@ mod gas {
 	pub const DEST_HANDLER_PER_TRANSFER: u64 = 19_602;
 	/// Gas for one Ed25519 authorization.
 	// Rebuilt after sharing the padded leaf-count helper with proof verification.
-	pub const IS_AUTHORIZED_ED25519: u64 = 3_981_857;
+	pub const IS_AUTHORIZED_ED25519: u64 = 4_018_071;
 }
 
 /// A report admitted by the gas gate must leave 20% execution headroom.
