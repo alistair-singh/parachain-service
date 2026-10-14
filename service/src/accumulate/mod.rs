@@ -5,8 +5,9 @@
 //! from its own gas: the due assigns from the always-accumulate allowance, each
 //! transfer from the gas it carries, and each work-report from the gas it
 //! declared itself. The service checkpoints after applying a report so a later
-//! report running the budget dry cannot undo it. All due assignments are applied
-//! before incoming transfers and work packages.
+//! report running the budget dry cannot undo it. Due assigns that did not fit
+//! the allowance are applied at the end if gas is left, and are otherwise
+//! carried over to the next block.
 
 pub mod assigns;
 pub mod code_upgrades;
@@ -18,8 +19,8 @@ pub mod upward;
 pub mod validator_keys;
 
 use crate::{head_commitment::HeadTracker, state::log::ParachainLogs};
-use jam_pvm_common::accumulate::{accumulate_items, checkpoint};
-use jam_types::{AccumulateItem, Hash, ServiceId, Slot};
+use jam_pvm_common::accumulate::{accumulate_items, checkpoint, gas};
+use jam_types::{AccumulateItem, Hash, ServiceId, Slot, UnsignedGas};
 use parachain_service_core::types::CORETIME_PARA_ID;
 
 #[derive(Debug)]
@@ -35,8 +36,20 @@ pub fn accumulate(
 	// build the commitment `accumulate` returns.
 	let mut heads = HeadTracker::new();
 
-	// Phase 1: always-accumulate — flush all due authorizer-queue assigns (§5.1).
-	flush_due_assigns(now, service_id);
+	// JAM's gas for this invocation is the always-accumulate allowance plus the
+	// gas each work-report and incoming transfer brought along, so whatever the
+	// items did not bring is the allowance.
+	let declared = items.iter().fold(0 as UnsignedGas, |sum, item| {
+		sum.saturating_add(match item {
+			AccumulateItem::WorkItem(record) => record.gas_limit,
+			AccumulateItem::Transfer(transfer) => transfer.gas_limit,
+		})
+	});
+	let allowance = gas().saturating_sub(declared);
+
+	// Phase 1: always-accumulate — flush the due authorizer-queue assigns the
+	// allowance pays for (§5.1).
+	flush_due_assigns(now, service_id, assigns::budget(allowance));
 
 	// Phase 2: incoming-transfer processing (§5.1). JAM already credited the
 	// balances unconditionally; recording is best effort. Transfers are
@@ -66,12 +79,17 @@ pub fn accumulate(
 		}
 	}
 
-	Ok(heads.commitment())
+	// The due assigns still pending are applied while the gas left pays for
+	// them (§5.1). They touch no head, so the commitment is final already.
+	let commitment = heads.commitment();
+	flush_due_assigns(now, service_id, assigns::budget(gas()));
+
+	Ok(commitment)
 }
 
-/// Fire all due assigns. `AssignCore` is Coretime only, so the
+/// Fire up to `budget` due assigns. `AssignCore` is Coretime only, so the
 /// rejections are logged against it.
-fn flush_due_assigns(now: Slot, service_id: ServiceId) {
-	let logs = assigns::apply_due_assigns(now, service_id);
+fn flush_due_assigns(now: Slot, service_id: ServiceId, budget: usize) {
+	let logs = assigns::apply_due_assigns(now, service_id, budget);
 	ParachainLogs::append_accumulate(CORETIME_PARA_ID, now, logs);
 }

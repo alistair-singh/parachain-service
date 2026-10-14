@@ -7,10 +7,13 @@ use common::*;
 use executor::pj;
 use jam_std_common::{hash_raw, Privileges};
 use jam_types::{AccumulateItem, AuthTrace, CodeHash, FixedVec};
-use parachain_service::state::{
-	assigns::{PendingAssign, PendingAssignCores},
-	log::{AccumulateLog, LogEntry},
-	storage_key, Tag,
+use parachain_service::{
+	constants::{DUE_ASSIGN_FLUSH_BASE_GAS, DUE_ASSIGN_GAS},
+	state::{
+		assigns::{PendingAssign, PendingAssignCores},
+		log::{AccumulateLog, LogEntry},
+		storage_key, Tag,
+	},
 };
 use parachain_service_bin::mock::accumulate_context_with_privileges;
 use std::collections::BTreeSet;
@@ -420,29 +423,43 @@ fn armed(assigns: &[(CoreIndex, u32)]) -> jam_node::vm::Storage {
 	accumulate_block(ct_storage(), vec![work_item(&digest)], NOW).1
 }
 
-#[test]
-fn all_due_assigns_before_packages_works() {
-	// All due entries must fire even when the old per-assign gas estimate
-	// would only admit one entry per flush. Future entries remain cached.
-	let storage = armed(&[(3, NOW + 8), (4, NOW + 5), (5, NOW + 2), (6, NOW + 5), (7, NOW + 20)]);
-
-	let (_, storage, mutations) =
-		run_block_with_gas(storage, vec![], NOW + 10, privileges_with_assign(SVC), Some(6_999_999));
-
-	assert_eq!(
-		mutations.auths.keys().copied().collect::<BTreeSet<_>>(),
-		BTreeSet::from([3, 4, 5, 6])
-	);
-	assert_eq!(dirty_cores(&storage).to_vec(), vec![(7, NOW + 20)]);
-	for core in 3..=6u16 {
-		assert!(storage.service_key(SVC, &storage_key(Tag::PendingAssigns, &core)).is_none());
-	}
+/// A pool whose always-accumulate allowance pays for exactly `n` due assigns
+/// on top of `declared`.
+fn pool_for(n: u64, declared: u64) -> u64 {
+	declared + DUE_ASSIGN_FLUSH_BASE_GAS + (n + 1) * DUE_ASSIGN_GAS - 1
 }
 
 #[test]
-fn due_assigns_applied_before_packages_works() {
-	// Due rejections must be logged before the package's inline rejection,
-	// even when the old gas estimate would postpone the due flush.
+fn due_assigns_beyond_allowance_carried_over_works() {
+	// §5.1: each flush applies only the due assigns its gas pays for, earliest
+	// due timeslot first and then lowest core. The allowance pays for one, and
+	// what is left of it at the end of the invocation for one more; the rest is
+	// carried over to the next block.
+	let storage = armed(&[(3, NOW + 8), (4, NOW + 5), (5, NOW + 2), (6, NOW + 5)]);
+
+	let (_, storage, mutations) = run_block_with_gas(
+		storage,
+		vec![],
+		NOW + 10,
+		privileges_with_assign(SVC),
+		Some(pool_for(1, 0)),
+	);
+
+	assert_eq!(mutations.auths.keys().copied().collect::<BTreeSet<_>>(), BTreeSet::from([4, 5]));
+	assert_eq!(dirty_cores(&storage).to_vec(), vec![(3, NOW + 8), (6, NOW + 5)]);
+
+	let (_, storage, mutations) =
+		run_block_with_privileges(storage, vec![], NOW + 11, privileges_with_assign(SVC));
+
+	assert_eq!(mutations.auths.keys().copied().collect::<BTreeSet<_>>(), BTreeSet::from([3, 6]));
+	assert!(dirty_cores(&storage).is_empty());
+}
+
+#[test]
+fn due_assigns_applied_after_packages_works() {
+	// §5.1: due assigns the allowance cannot pay for are applied at the end of
+	// the invocation from the gas the work packages left, so a rejection is
+	// logged after the same block's Coretime package.
 	let storage = armed(&[(CORE, NOW + 10)]);
 	let other = UpwardMessage::AssignCore {
 		core: CORE + 1,
@@ -457,7 +474,7 @@ fn due_assigns_applied_before_packages_works() {
 		vec![work_item(&digest)],
 		NOW + 10,
 		privileges_with_assign(99),
-		Some(REPORT_GAS + 5_999_999),
+		Some(pool_for(0, REPORT_GAS)),
 	);
 
 	let rejected = |core| {
@@ -467,6 +484,6 @@ fn due_assigns_applied_before_packages_works() {
 		)
 	};
 	let log = para_log(&storage, CORETIME_PARA_ID);
-	assert_eq!(log[log.len().saturating_sub(2)..], [rejected(CORE), rejected(CORE + 1)]);
+	assert_eq!(log[log.len().saturating_sub(2)..], [rejected(CORE + 1), rejected(CORE)]);
 	assert!(dirty_cores(&storage).is_empty());
 }

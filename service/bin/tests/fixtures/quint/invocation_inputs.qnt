@@ -36,9 +36,9 @@ module invocation_inputs {
       if ((interrupt < 0 or i < interrupt) and limits[i] >= reportGas(packages[i]))
         acc.append(packages[i]) else acc)
 
-    // Rust flushes every due assignment before report processing, including
-    // invocations interrupted after the always-accumulate checkpoint.
-    val assignBudget = FullAssignBudget
+    // An exhausted pool holds no more than the reports' declared gas, so no
+    // due assign fits the always-accumulate allowance and all stay cached (§5.1).
+    val assignBudget = if (interrupt >= 0 and not(panic)) { flush: 0, end: 0 } else FullAssignBudget
     // Evaluate the pinned phases in runtime order, without inserting a second
     // invocation between incoming transfers and work reports.
     val prefix = accumulateBlockBudgeted(svc, slot, List(), solicitedSet,

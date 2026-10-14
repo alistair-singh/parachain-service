@@ -34,10 +34,17 @@ pub fn limits(frame: &Value, count: usize) -> Result<Vec<u64>, String> {
 }
 
 pub fn apply(frame: &Value, items: &mut [AccumulateItem]) -> Result<(), String> {
+	let results = field(frame, "lastStepWorkResults")?
+		.as_array()
+		.ok_or("work results must be a list")?;
 	let limits = limits(frame, items.len())?;
-	for (item, limit) in items.iter_mut().zip(limits) {
+	for ((item, limit), result) in items.iter_mut().zip(limits).zip(results) {
 		if let AccumulateItem::WorkItem(record) = item {
-			record.gas_limit = limit;
+			// JAM adds every declared limit to the invocation's gas, but the mock's
+			// pool is fixed, so whatever the reports declare comes out of the
+			// always-accumulate allowance the service derives (§5.1). Declaring no
+			// more than the gate needs keeps the gate's outcome and the allowance.
+			record.gas_limit = limit.min(cost(result)?);
 		}
 	}
 	Ok(())

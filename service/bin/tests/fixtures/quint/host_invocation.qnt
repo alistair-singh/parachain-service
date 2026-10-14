@@ -134,9 +134,10 @@ module host_invocation {
   // Unlike the isolated storage profile, this runs on the general campaign's
   // current state, including pending assignments, provided code, and old logs.
   // Unsupported backstop sites are guarded, never approximated as successes.
-  // Rust completes the due flush before report processing even when a later
-  // report exhausts the pool. Keep this choice independent of interruption.
-  pure def hostAssignBudget(_stop: bool): AssignBudget = FullAssignBudget
+  // An invocation stopped by an exhausted pool holds no more than the reports'
+  // declared gas, so no due assign fits the always-accumulate allowance (§5.1).
+  pure def hostAssignBudget(stop: bool): AssignBudget =
+    if (stop) { flush: 0, end: 0 } else FullAssignBudget
   def hostPrefix(packages: List[WorkResult], slot: int, incoming: List[IncomingTransfer],
     limits: List[int], allowance: int, assignBudget: AssignBudget): HostPackage = {
     val due = accumulateBlockBudgeted(svc, slot, List(), solicitedSet, FixedCodeLen, List(),

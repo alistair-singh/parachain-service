@@ -72,13 +72,13 @@ JAM balances, installed code lengths, and upgrade gas-setting mismatches are rej
   The vendored host exposes only final mutations, so overwritten intermediate
   calls and ordering between independent cores cannot be compared. The model's
   `jamCoreAssigners` ghost state is checked only through those privileges.
-- Every due assignment is flushed before transfers and work reports (§5.1).
-  Report failures after the always-accumulate checkpoint preserve those effects;
-  failures before that checkpoint roll them back. Assignment regression tests
-  cover complete flushing, future queues, rotation, and rejection log order.
-  The upstream model also supports partial flushes; replay selects
-  `FullAssignBudget` to match Rust's complete-flush policy. A rollback before
-  the first checkpoint records zero retained assignment budget/effects.
+- Due assignments are flushed in due-slot/core order within the available
+  allowance, retried after work reports using leftover gas, and otherwise
+  carried into later blocks (§5.1). Assignment regression tests cover partial
+  flushing, carry-over, rotation, and rejection log order. Interrupted replay
+  invocations select a zero assignment budget when no allowance remains;
+  rollback before the first checkpoint retains no assignment effects.
+
 - Incoming-transfer replay requires explicit `replayIncoming` operands and an
   initially empty queue. Frames may carry arrivals and work reports together;
   replay credits arrivals before one invocation containing both input types. Regular-balance arrivals are supported; supervisor

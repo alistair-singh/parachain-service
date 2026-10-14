@@ -90,7 +90,7 @@ pub fn state(
 	state_at(storage, current, codex, frame, now)
 }
 
-/// Pending assignments must be in the future relative to the last
+/// Fired assignments must be re-armed in the future relative to the last
 /// completed always-accumulate phase. Rollback (and later external provision)
 /// cannot advance this watermark; all other state predicates still run normally.
 pub fn state_at(
@@ -243,14 +243,8 @@ pub fn state_at(
 		frame,
 		&due,
 	)?;
-	check(
-		due.iter().all(|(_, slot)| *slot > now),
-		"pending_authorizer_apply_at_future",
-		frame,
-		&due,
-	)?;
-	// The upstream model also permits partial flushes; its weaker predicate
-	// must hold independently of our complete-flush policy above.
+	// A due entry may stay cached when the gas ran out before reaching it, but
+	// one whose assign fired is dropped or re-armed into the future (§5.1).
 	for call in field(current, "lastStepAssigns")?
 		.as_array()
 		.ok_or("lastStepAssigns must be a list")?
