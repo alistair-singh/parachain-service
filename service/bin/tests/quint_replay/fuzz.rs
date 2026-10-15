@@ -997,6 +997,7 @@ fn storage_recovery_generated_works() {
 	let mut head_failure = false;
 	let mut resumed = false;
 	let mut finalization = false;
+	let mut assignment_failures = std::collections::BTreeSet::new();
 	for line in String::from_utf8(output.stdout).unwrap().lines() {
 		let envelope: Value = serde_json::from_str(line).unwrap();
 		let mut interrupted = false;
@@ -1008,6 +1009,12 @@ fn storage_recovery_generated_works() {
 				!state["replayDesignate"].as_array().unwrap().is_empty();
 			resumed |= interrupted && phase == "-1";
 			interrupted |= phase != "-1";
+			if phase == "1" {
+				let failure = state["replayAssignmentFailure"].as_str().unwrap();
+				if !failure.is_empty() {
+					assignment_failures.insert(failure.to_owned());
+				}
+			}
 			if phase != "-1" {
 				metadata_failure |= !state["replayFailedMessages"].as_array().unwrap().is_empty();
 				head_failure |= !state["replayFailedHeads"].as_array().unwrap().is_empty();
@@ -1016,6 +1023,11 @@ fn storage_recovery_generated_works() {
 		replay::document_trace(&envelope["trace"])
 			.unwrap_or_else(|e| panic!("seed {}: {e}", envelope["seed"]));
 	}
+	assert_eq!(
+		assignment_failures,
+		["payload", "index"].map(str::to_owned).into(),
+		"missing checkpointed assignment rejection"
+	);
 	assert!(finalization, "missing zero-headroom checkpointed finalization");
 	assert_eq!(phases, ["-2", "-1", "0", "1", "2"].map(str::to_owned).into());
 	assert!(metadata_failure && head_failure && resumed,

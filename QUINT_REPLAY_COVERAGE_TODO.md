@@ -54,8 +54,15 @@ limits; separate Rust tests cover some excluded cases.
 - [x] Cover valid nonempty validator finalization under constrained host balance:
   rejected staging, zero-headroom finalization, rollback, retained designation
   and released staging deposit.
-- [ ] TODO: Model low-balance failure at remaining upward-message write sites and
-  mix those failures with gas recovery; never infer the oracle from Rust effects.
+- [x] Cover scheduled assignment payload and dirty-index storage rejection,
+  including first-index creation, replacement growth/shrink, index-failure deposit
+  refunds, checkpoint rollback, and funded retries. Rejecting either write must
+  preserve both the previous cache and its due time.
+- [ ] TODO: Extend assignment storage recovery to inline assignments and their
+  post-call cache/index writes; include a later due flush after rejected writes.
+- [ ] TODO: Audit remaining upward-message write-site boundaries (including KV
+  charge-record growth) and combine failures with gas recovery; never infer the
+  oracle from Rust effects.
 - [x] Require every recovery phase, head and metadata failures during interrupted
   invocations, and later successful invocations in generated coverage assertions.
 

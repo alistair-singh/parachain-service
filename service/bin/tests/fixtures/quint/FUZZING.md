@@ -490,3 +490,12 @@ The `storage_recovery` profile also samples compact-u64 balance boundaries and
 valid nonempty validator finalization at zero spare host balance. Focused fixtures
 check five gas cutoffs per checkpoint interval, retained storage refunds and
 designations, and retries after rolled-back growth/finalization.
+
+Scheduled assignments are also generated under constrained host balance. The
+oracle prices payload and dirty-index writes separately, including the first
+index's item deposit. Coverage requires checkpointed payload and index rejection;
+a focused generator action keeps index rejection reachable by funding its payload
+but leaving the index one unit short. Fixtures also check failed replacements,
+shrink refunds, and retries after both
+gas rollback and index-failure rollback. Due times stay beyond the bounded campaign,
+so this profile does not yet cover due flushing or inline assignment settlement.
