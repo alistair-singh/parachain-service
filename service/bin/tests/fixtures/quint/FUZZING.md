@@ -485,3 +485,8 @@ Mixed host-budget invocations record their successful upgrades as well. Rust
 checks these events against hazmat host observation after applying checkpoint
 rollback. Generated designation and upgrade regressions require their respective
 history events; final-state and assignment comparisons remain enabled.
+
+The `storage_recovery` profile also samples compact-u64 balance boundaries and
+valid nonempty validator finalization at zero spare host balance. Focused fixtures
+check five gas cutoffs per checkpoint interval, retained storage refunds and
+designations, and retries after rolled-back growth/finalization.

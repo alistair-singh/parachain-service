@@ -990,18 +990,22 @@ fn refine_generated_works() {
 #[test]
 #[ignore = "checks storage failures with gas recovery; requires Node and Quint 0.32.0"]
 fn storage_recovery_generated_works() {
-	let output = generator_profile("storage_recovery", 1, 1, 10, 20).output().unwrap();
+	let output = generator_profile("storage_recovery", 1, 1, 30, 50).output().unwrap();
 	assert!(output.status.success());
 	let mut phases = std::collections::BTreeSet::new();
 	let mut metadata_failure = false;
 	let mut head_failure = false;
 	let mut resumed = false;
+	let mut finalization = false;
 	for line in String::from_utf8(output.stdout).unwrap().lines() {
 		let envelope: Value = serde_json::from_str(line).unwrap();
 		let mut interrupted = false;
 		for state in envelope["trace"]["states"].as_array().unwrap().iter().skip(1) {
 			let phase = state["replayInterrupt"]["#bigint"].as_str().unwrap();
 			phases.insert(phase.to_owned());
+			finalization |= phase == "1" &&
+				state["replayStorageBudget"] == serde_json::json!({"#bigint":"0"}) &&
+				!state["replayDesignate"].as_array().unwrap().is_empty();
 			resumed |= interrupted && phase == "-1";
 			interrupted |= phase != "-1";
 			if phase != "-1" {
@@ -1012,6 +1016,7 @@ fn storage_recovery_generated_works() {
 		replay::document_trace(&envelope["trace"])
 			.unwrap_or_else(|e| panic!("seed {}: {e}", envelope["seed"]));
 	}
+	assert!(finalization, "missing zero-headroom checkpointed finalization");
 	assert_eq!(phases, ["-2", "-1", "0", "1", "2"].map(str::to_owned).into());
 	assert!(metadata_failure && head_failure && resumed,
 		"missing mixed failure/retry coverage: metadata={metadata_failure}, head={head_failure}, resumed={resumed}");

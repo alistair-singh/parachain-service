@@ -242,8 +242,12 @@ report prefix; gas probes select cutoffs without supplying expected state.
 
 Focused fixtures sample five positions per interval. The opt-in generated test
 requires every recovery phase, metadata and head failures in interrupted
-invocations, and subsequent successful invocations. Nonempty validator
-finalization and other upward-message backstop sites remain follow-ups in
+invocations, zero-headroom checkpointed validator finalization, and subsequent
+successful invocations. Balance fixtures cross all reachable compact-u64 size
+boundaries (2^30, 2^32, 2^40, 2^48, 2^56), checking rejected growth, rollback,
+one-byte funding, shrink refunds, and retries. Validator fixtures retain or roll
+back both the staged-buffer deposit release and the designation. Other
+upward-message backstop sites remain follow-ups in
 [the coverage TODO](../../../../../QUINT_REPLAY_COVERAGE_TODO.md).
 
 The `code_recovery` profile applies the independent code-storage oracle to a

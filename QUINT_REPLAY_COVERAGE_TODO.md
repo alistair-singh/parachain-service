@@ -48,8 +48,12 @@ limits; separate Rust tests cover some excluded cases.
   storage failures with pre-checkpoint, in-report, and final-checkpoint exhaustion;
   verify retained references/free balance and retries. Keep natural solicitation
   traps separate from gas exhaustion.
-- [ ] TODO: Extend storage recovery to compact-encoded balance growth.
-- [ ] TODO: Cover nonempty validator finalization under constrained host balance.
+- [x] Extend storage recovery to compact-encoded balance growth: all reachable
+  u64 size boundaries, zero/one-byte headroom, rollback, retained growth/shrink
+  refunds and retries.
+- [x] Cover valid nonempty validator finalization under constrained host balance:
+  rejected staging, zero-headroom finalization, rollback, retained designation
+  and released staging deposit.
 - [ ] TODO: Model low-balance failure at remaining upward-message write sites and
   mix those failures with gas recovery; never infer the oracle from Rust effects.
 - [x] Require every recovery phase, head and metadata failures during interrupted
