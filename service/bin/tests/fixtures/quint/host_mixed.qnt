@@ -5,6 +5,7 @@ module host_mixed {
   import state_vars.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/state_vars"
   import main.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/main"
   import support.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/tests/support"
+  import host_invocation.* from "./host_invocation"
   import fuzz.* from "./fuzz"
   import gas_inputs.* from "./gas_inputs"
   import transfer_inputs.* from "./transfer_inputs"
@@ -75,4 +76,37 @@ module host_mixed {
   run queue_cleanup_works = replayInit
     .then(hostBlockAt(1000, 3, 4, false, CleanUpBucketsUpTo(0), remove82))
     .then(normal(AssetHubParaId, List(storeKV(81, 1))))
+  // An unprovided solicitation raises the private charge without allocating a
+  // gigabyte of bytes. The next KV write crosses SCALE's 2^30 boundary.
+  action chargeBoundary = normal(AssetHubParaId, List(solicit(888,
+    1073741823 - svc.paraInfo(AssetHubParaId).usedStateBalance - 187)))
+  action fundCharge = normal(CoretimeParaId, List(ParachainSetStateBalance({
+    paraId: AssetHubParaId, newTotal: 2147483648 })))
+  action chargeWrite(allowance: int, len: int, stop: int): bool =
+    hostInvocation(List(replayWork(svc, AssetHubParaId,
+      svc.paraInfo(AssetHubParaId).headData, activeCodeCandidate(svc, AssetHubParaId),
+      0, 0, 0, List(storeKV(83, len)))), now + 1, List(), List(UnlimitedGas), allowance, stop)
+
+  run kv_charge_insert_works = replayInit
+    .then(fundCharge).then(chargeBoundary)
+    .then(chargeWrite(0, 1, -1))
+    .then(chargeWrite(1, 1, -1))
+    .then(chargeWrite(51, 1, -1))
+    .then(chargeWrite(52, 1, -1))
+    .then(normal(AssetHubParaId, List(RemoveKV({ paraId: AssetHubParaId, key: List(83) }))))
+  run kv_charge_overwrite_works = replayInit
+    .then(fundCharge).then(normal(AssetHubParaId, List(storeKV(83, 1))))
+    .then(chargeBoundary)
+    .then(chargeWrite(0, 2, -1))
+    .then(chargeWrite(1, 2, -1))
+    .then(chargeWrite(2, 2, -1))
+    .then(chargeWrite(0, 1, -1))
+  run kv_charge_recovery_works = replayInit
+    .then(fundCharge).then(chargeBoundary)
+    .then(chargeWrite(0, 1, 1))
+    .then(chargeWrite(1, 1, 1))
+    .then(chargeWrite(52, 1, 0))
+    .then(chargeWrite(52, 1, 1))
+    .then(normal(AssetHubParaId, List(RemoveKV({ paraId: AssetHubParaId, key: List(83) }))))
+
 }

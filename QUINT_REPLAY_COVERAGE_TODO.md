@@ -9,9 +9,13 @@ Prioritize the remaining Accumulate write-site audit.
 
 ## 1 Accumulate storage failures and recovery
 
-- [ ] TODO: Audit remaining upward-message write-site boundaries (including KV
-  charge-record growth) and combine failures with gas recovery; never infer the
-  oracle from Rust effects.
+- [ ] TODO: Extend KV charge-record boundary coverage to generated campaigns and
+  additional compact widths; the fixed insertion/overwrite fixtures now cover
+  charge rejection, KV rollback, retry, shrink/refund, and gas recovery at 2^30.
+- [ ] TODO: Combine cleanup/refund and code-apply write sequences with instruction
+  gas recovery. Their storage writes shrink or retain their footprints, so host
+  deposit rejection is not the missing case; preserve independent checkpoint
+  expectations.
 
 ## 2 Refine executable, byte, and package domains
 

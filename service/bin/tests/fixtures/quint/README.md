@@ -330,3 +330,23 @@ selection).
 PVF outcomes. The opt-in generated test requires every fault, success/error/trap
 outcomes, and both mixed and rejected-only invocations; it is also available as
 `QUINT_FUZZ_PROFILE=authorization` for sustained campaigns.
+
+The `host_mixed/kv_charge_*` fixtures isolate the two writes in `SetKV` at
+SCALE's 2^30 used-balance boundary. An unprovided solicitation raises the charge
+without allocating the requested preimage. Independent footprint arithmetic
+predicts first-write rejection, second-write rejection with charge rollback,
+and exact-fit success (52 units for insertion, 2 for a one-byte overwrite).
+Removal and shrinking overwrites check refunds across that boundary. Recovery
+samples five instruction cutoffs before or after the report checkpoint, retaining
+only the Quint-selected prefix; a fully funded follow-up checks continued use.
+Budget mutation tests require the rejected and committed states to disagree.
+These fixed cases inject work results directly and do not cover every compact
+width or every instruction cutoff.
+
+The remaining upward-message write audit distinguishes growing writes from
+shrinking ones: code application clears announcement metadata; KV removal,
+reference release, and cleanup delete entries or refund balances. These paths
+cannot require extra storage deposit, but still warrant combined instruction-gas
+recovery coverage. Growing registration/head/balance/code-acquisition metadata,
+validator staging, and assignment payload/index writes have dedicated backstop
+fixtures; this does not imply exhaustive combinations across those domains.
