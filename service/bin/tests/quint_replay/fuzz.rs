@@ -998,6 +998,8 @@ fn storage_recovery_generated_works() {
 	let mut resumed = false;
 	let mut finalization = false;
 	let mut assignment_failures = std::collections::BTreeSet::new();
+	let mut inline_failures = std::collections::BTreeSet::new();
+	let mut due_flush = false;
 	for line in String::from_utf8(output.stdout).unwrap().lines() {
 		let envelope: Value = serde_json::from_str(line).unwrap();
 		let mut interrupted = false;
@@ -1013,8 +1015,19 @@ fn storage_recovery_generated_works() {
 				let failure = state["replayAssignmentFailure"].as_str().unwrap();
 				if !failure.is_empty() {
 					assignment_failures.insert(failure.to_owned());
+					if !state["lastStepAssigns"].as_array().unwrap().is_empty() {
+						inline_failures.insert(failure.to_owned());
+					}
 				}
 			}
+			due_flush |= phase == "-1" &&
+				!state["lastStepAssigns"].as_array().unwrap().is_empty() &&
+				state["lastStepWorkResults"].as_array().unwrap().iter().all(|report| {
+					report
+						.pointer("/result/value/value/upwardMessages")
+						.and_then(Value::as_array)
+						.is_some_and(Vec::is_empty)
+				});
 			if phase != "-1" {
 				metadata_failure |= !state["replayFailedMessages"].as_array().unwrap().is_empty();
 				head_failure |= !state["replayFailedHeads"].as_array().unwrap().is_empty();
@@ -1028,6 +1041,12 @@ fn storage_recovery_generated_works() {
 		["payload", "index"].map(str::to_owned).into(),
 		"missing checkpointed assignment rejection"
 	);
+	assert_eq!(
+		inline_failures,
+		["payload", "index"].map(str::to_owned).into(),
+		"missing checkpointed inline rejection with retained JAM call"
+	);
+	assert!(due_flush, "missing funded due flush after cached assignment");
 	assert!(finalization, "missing zero-headroom checkpointed finalization");
 	assert_eq!(phases, ["-2", "-1", "0", "1", "2"].map(str::to_owned).into());
 	assert!(metadata_failure && head_failure && resumed,

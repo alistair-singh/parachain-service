@@ -5,13 +5,11 @@ removed from this list; current coverage is documented in
 [the fixture guide](service/bin/tests/fixtures/quint/README.md).
 These are replay coverage limits; separate Rust tests cover some excluded cases.
 
-Prioritize inline assignment recovery, the authorization pipeline, then Refine
-malformed-byte, executable, and gas coverage.
+Prioritize the authorization pipeline, then Refine malformed-byte, executable,
+and gas coverage.
 
 ## 1 Accumulate storage failures and recovery
 
-- [ ] TODO: Extend assignment storage recovery to inline assignments and their
-  post-call cache/index writes; include a later due flush after rejected writes.
 - [ ] TODO: Audit remaining upward-message write-site boundaries (including KV
   charge-record growth) and combine failures with gas recovery; never infer the
   oracle from Rust effects.
@@ -61,4 +59,6 @@ malformed-byte, executable, and gas coverage.
   storage-failure/recovery scenarios that currently inject work results directly.
 - [ ] TODO: Broaden sampled Accumulate gas cutoffs and combinations with report
   rejection and natural traps. Current sampling is not exhaustive across every
-  instruction; preserve independent checkpoint expectations.
+  instruction; preserve independent checkpoint expectations. Include due-flush
+  exhaustion: current sampling removes its initial gas allowance, so recovery
+  fixtures exercise later due flushes only in fully funded invocations.

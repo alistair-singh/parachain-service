@@ -250,8 +250,13 @@ back both the staged-buffer deposit release and the designation. Assignment
 fixtures cover scheduled payload/index writes, initial index creation, failed
 replacement growth, shrink refunds, index-failure deposit refunds, and funded retries.
 Generated coverage requires checkpointed rejection at both assignment write sites.
-Inline assignment settlement and other
-upward-message backstop sites remain follow-ups in
+Inline fixtures cover post-call payload/index rejection, rollback of successful
+calls, retained calls despite rejected cache growth, funded replacement, zero-balance
+tiling queues, and later due flushing of preserved or rotated queues. Generated
+coverage requires both inline write refusals with retained calls and a due flush.
+Sampled gas invocations exclude already-due entries: calibration removes the
+initial flush allowance. Due-flush checks use fully funded invocations.
+Other upward-message backstop sites remain follow-ups in
 [the coverage TODO](../../../../../QUINT_REPLAY_COVERAGE_TODO.md).
 
 The `code_recovery` profile applies the independent code-storage oracle to a

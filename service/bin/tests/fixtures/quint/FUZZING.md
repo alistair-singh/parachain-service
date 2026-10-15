@@ -496,6 +496,11 @@ oracle prices payload and dirty-index writes separately, including the first
 index's item deposit. Coverage requires checkpointed payload and index rejection;
 a focused generator action keeps index rejection reachable by funding its payload
 but leaving the index one unit short. Fixtures also check failed replacements,
-shrink refunds, and retries after both
-gas rollback and index-failure rollback. Due times stay beyond the bounded campaign,
-so this profile does not yet cover due flushing or inline assignment settlement.
+shrink refunds, and retries after both gas rollback and index-failure rollback.
+Future scheduling sets a distant due time; dedicated flush actions advance past it.
+
+The `storage_recovery` campaign also mixes inline assignment storage failures,
+funded retries, and later due flushes. Its opt-in test requires payload and index
+rejections with retained JAM calls, plus a successful due flush. Interrupted
+invocations exclude already-due entries because gas sampling removes the initial
+flush allowance; due-flush invocations use full funding.

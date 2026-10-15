@@ -47,6 +47,9 @@ module fuzz {
     val end = if (stop == -2) 0 else if (stop == -1) packages.length() else stop
     val out = range(0, end).foldl(arrived, (a, i) => report(a, packages[i], i, slot))
     all {
+      // Sampled gas runs have no initial flush allowance. Keep due-flush
+      // invocations fully funded; their expected calls still come from Quint.
+      stop == -1 or svc.pendingAssignCores.keys().forall(c => svc.pendingAssignCores.get(c) > slot),
       svc' = out.state, prevSvc' = svc, now' = slot,
       lastStepWorkResults' = packages, lastStepAssigns' = out.assigns, lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = if (stop == -1) headCommitment(svc, out.state) else None,
@@ -90,8 +93,11 @@ module fuzz {
       AssignCore({ core: core, queue: range(0, count).foldl(List(),
         (a, i) => a.append({ authBytes: now + i + 10 })),
         newAssigner: None, jamSlot: now })))), List(), List())
-  action flushRecovery(stop: int): bool =
+  action flushRecovery(stop: int): bool = all {
+    stop == -1,
+    now + 1000081 < 4294967296,
     recoverAt(0, stop, List(metadataWork(CoretimeParaId, List())), List(), List(), now + 1000001)
+  }
 
   // Three hashes do not tile the 80-slot queue: payload 145, initial index 52.
   run inline_assignment_recovery_works = replayInit
@@ -137,6 +143,24 @@ module fuzz {
         core, 1, 1)
     }
   }
+  action inlineStep = {
+    nondet budget = Set(0, 52, 144, 145, 150, 151, 196, 197, 127, 128, 1000).oneOf()
+    nondet core = Set(0, 1, 2).oneOf()
+    nondet count = Set(1, 2, 3, 7).oneOf()
+    nondet stop = Set(-2, -1, 0, 1).oneOf()
+    inlineRecovery(budget, core, count, stop)
+  }
+  action inlineIndexStep = {
+    val core = (now + 3) % CoreCount
+    val count = svc.pendingAssignCores.keys().size() + 1
+    val oldIndex = if (replayStorageSizes.keys().contains(3)) replayStorageSizes.get(3) else 0
+    all {
+      not(svc.pendingAssigns.keys().contains(core)),
+      inlineRecovery(145 + cost(1, compact(count) + 6 * count) - oldIndex - 1,
+        core, 3, 1)
+    }
+  }
+  action flushStep = all { svc.pendingAssigns.keys() != Set(), flushRecovery(-1) }
   action balanceStep = {
     nondet boundary = Set(1073741824, 4294967296, 1099511627776,
       281474976710656, 72057594037927936).oneOf()
@@ -165,7 +189,7 @@ module fuzz {
   // credits accidentally funding it. First retain a shrink, then reject growth.
   action headGrowthStep = recover(0, 0,
     if (svc.paraInfo(AssetHubParaId).headData == 0) 2 else 1, 0, 0)
-  action replayStep = any { randomStep, headGrowthStep, balanceStep, validatorStep, assignmentStep, assignmentIndexStep }
+  action replayStep = any { randomStep, headGrowthStep, balanceStep, validatorStep, assignmentStep, assignmentIndexStep, inlineStep, inlineIndexStep, flushStep }
   // One-hash payload costs 81; creating the first dirty index costs 52.
   // Funding only the index must not arm it when the payload cannot be stored.
   run assignment_payload_recovery_works = replayInit
