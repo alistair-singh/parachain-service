@@ -52,8 +52,8 @@ Prioritize the remaining Accumulate write-site audit.
   storage-failure/recovery scenarios that currently inject work results directly.
 - [ ] TODO: Broaden sampled Accumulate gas cutoffs and combinations with report
   rejection and natural traps. Current sampling is not exhaustive across every
-  instruction; preserve independent checkpoint expectations. Include due-flush
-  exhaustion: current sampling removes its initial gas allowance, so recovery
-  fixtures exercise later due flushes only in fully funded invocations.
+  instruction; preserve independent checkpoint expectations. Due-flush host
+  boundaries now have injected gas-fault coverage; natural exhaustion during
+  funded flushes and generated fault/rejection combinations remain uncovered.
 - [ ] TODO: Extend the authorization replay beyond its fixed single-collator
   tree to collator rotation, deeper Merkle proofs, and authorization gas exhaustion.

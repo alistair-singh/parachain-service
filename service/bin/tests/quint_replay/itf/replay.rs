@@ -45,7 +45,10 @@ pub fn document_trace(document: &Value) -> Result<(), String> {
 	super::services::validate(states)?;
 	let mut created_accounts = Default::default();
 	let first = states.first().ok_or("trace has no states")?;
-	if super::instruction_gas::enabled(first) || super::gas::before_checkpoint(first)? {
+	if super::instruction_gas::enabled(first) ||
+		super::instruction_gas::due_flush_enabled(first) ||
+		super::gas::before_checkpoint(first)?
+	{
 		return Err("initial frame cannot specify invocation gas".into());
 	}
 	let gas_profile = first.get("replayGasLimits").is_some();
@@ -95,7 +98,9 @@ pub fn document_trace(document: &Value) -> Result<(), String> {
 		let mut output = None;
 		let mut host_offset = None;
 		let kind = classify(&pair[0], &pair[1])?;
-		if (super::instruction_gas::enabled(&pair[1]) || super::gas::before_checkpoint(&pair[1])?) &&
+		if (super::instruction_gas::enabled(&pair[1]) ||
+			super::instruction_gas::due_flush_enabled(&pair[1]) ||
+			super::gas::before_checkpoint(&pair[1])?) &&
 			!matches!(kind, FrameKind::Block | FrameKind::IncomingTransfer)
 		{
 			return Err("invocation gas requires an invocation frame".into());
@@ -560,7 +565,13 @@ pub(super) fn accumulate_block_recovery(
 	let mut context = parachain_service_bin::mock::accumulate_context_with_privileges(
 		storage, items, slot, privileges,
 	);
-	if let Some(frame) = frame {
+	let cutoff = frame
+		.map(|frame| super::instruction_gas::due_flush_cutoff(&engine, &context, frame))
+		.transpose()?
+		.flatten();
+	if let Some((limit, _, _)) = cutoff {
+		context.gas = limit;
+	} else if let Some(frame) = frame {
 		context.gas = super::instruction_gas::limit(&engine, &context, frame)?;
 	}
 	let code_hash = context
@@ -569,7 +580,17 @@ pub(super) fn accumulate_block_recovery(
 		.expect("replay service exists")
 		.code_hash;
 	let calls = super::host_calls::Capture::start()?;
-	let (result, elapsed, gas_used) = engine.accumulate(code_hash, &mut context);
+	let (result, elapsed, gas_used) = if let Some((_, ordinal, after)) = cutoff {
+		let (result, reached) = jam_node::vm::replay_fault::with_cutoff(ordinal, after, || {
+			engine.accumulate(code_hash, &mut context)
+		});
+		if !reached {
+			return Err("due-flush gas cutoff was not reached".into());
+		}
+		result
+	} else {
+		engine.accumulate(code_hash, &mut context)
+	};
 	let yielded = if let Some(expected) = interrupted {
 		// The test VM API does not export its error enum. Require this exact
 		// nonfatal cause rather than accepting arbitrary execution failures.

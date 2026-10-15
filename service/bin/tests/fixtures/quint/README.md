@@ -31,6 +31,7 @@ and `just quint-compact` before committing.
 | Refine errors, WorkErr, empty blocks | Error logs, unlogged failures of other code, and unchanged state for skipped work |
 | Pre-checkpoint gas recovery | Independent rollback oracle, retained incoming funds, reverted due assignments and queue writes, repeated exhaustion, and successful retries |
 | Instruction gas recovery | Sampled invocation limits and cutoffs before/after writes, creation, and transfers; fixed Quint prefix, checkpoint effects, and subsequent invocations |
+| Due-flush recovery | Injected gas exhaustion before/after assignment, read, and write calls in funded initial/final flushes; rollback of three cores, rotating queues, retained reports/credits, and retries |
 | Accumulate panic recovery | Actual PVM traps from malformed work digests; first/middle/last checkpoints, zero report gas, repeated faults, due assignments, retained host effects, and successful later invocations |
 | Multiple work packages and parachains | Ordered processing, shared references, delegated forgets, and combined head commitments |
 | KV operations | Overwrite, empty keys/values rejected at Refine, values crossing 64 bytes without a length prefix, refunds, delegated and unauthorized removal, failed reservations, and stale candidates |
@@ -279,6 +280,7 @@ tiling queues, and later due flushing of preserved or rotated queues. Generated
 coverage requires both inline write refusals with retained calls and a due flush.
 Sampled gas invocations exclude already-due entries: calibration removes the
 initial flush allowance. Due-flush checks use fully funded invocations.
+The separate `due_flush` fixtures below inject faults into active flushes.
 Other upward-message backstop sites remain follow-ups in
 [the coverage TODO](../../../../../QUINT_REPLAY_COVERAGE_TODO.md).
 
@@ -304,6 +306,24 @@ before calibration; probes use only host-call order and gas. Required minimum
 write counts prevent vacuous coverage, and changing the selected checkpoint must
 fail against the original oracle. These are focused fixtures, not exhaustive
 instruction enumeration or generated combinations of all cleanup lifecycles.
+
+The `due_flush` fixtures cover three pending cores with one-hash tiling queues
+and three-hash rotating queues. `due_flush.rs` checks both sides of every assign,
+read, and write in the selected initial or final phase. Initial faults preserve
+incoming scheduler credits but roll back all guest changes. Final faults retain
+the report checkpoint and roll back subsequent assignments and cache mutations.
+A later invocation must flush all three cores with the original queue contents.
+
+`replayDueFlushBoundary` selects `initial|final:before|after:assign|read|write:N`,
+where N is a zero-based occurrence. A discarded calibration run locates calls
+without reading recovered state. The hazmat-only, thread-local host hook drains
+gas at that boundary and returns `NotEnoughGas`; the installed guest is unchanged.
+Final-flush calibration suppresses the initial allowance while leaving enough
+report gas for the end flush. These are **injected host-boundary faults**, not
+evidence that ordinary flush costs exceed their reserved gas. Natural exhaustion
+and arbitrary instruction cutoffs remain separate coverage gaps. Tests reject
+unreachable boundaries, mismatched checkpoint phases, and retained assignments
+that contradict Quint, and check that fault scopes are cleared after unwinding.
 
 ## Ordered designation and upgrade calls
 
