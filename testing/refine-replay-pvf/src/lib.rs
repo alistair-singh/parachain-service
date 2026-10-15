@@ -13,6 +13,8 @@ pub enum Call {
 	Send(Vec<u8>),
 	Error(Vec<u8>),
 	Panic,
+	/// Consume every finite child gas budget without returning.
+	ExhaustGas,
 }
 
 #[cfg(target_arch = "riscv64")]
@@ -44,6 +46,9 @@ extern "C" fn jam_validate_block() {
 				Call::Head(data) => head(data.as_ptr() as u32, data.len() as u32),
 				Call::Send(data) => send(data.as_ptr() as u32, data.len() as u32),
 				Call::Error(data) => error(data.as_ptr() as u32, data.len() as u32),
+				Call::ExhaustGas => loop {
+					core::hint::black_box(0u32);
+				},
 				Call::Panic => panic!("scripted PVF panic"),
 			}
 		}

@@ -214,6 +214,16 @@ pub(super) fn execute_authorized(
 			_ => return Err(format!("unsupported call {tag}")),
 		});
 	}
+	let gas_mode = input
+		.get("gasMode")
+		.map(|v| v.as_str().ok_or("gasMode must be string"))
+		.transpose()?
+		.unwrap_or("normal");
+	match gas_mode {
+		"normal" | "zero" | "funded" => {},
+		"child" => script.push(Call::ExhaustGas),
+		_ => return Err(format!("unsupported gasMode {gas_mode}")),
+	}
 	let abstract_code = codex.code_hash(integer(field(field(reference, "hash")?, "vchBytes")?)?)?;
 	let byte_fault = input
 		.get("byteFault")
@@ -258,6 +268,11 @@ pub(super) fn execute_authorized(
 		&preimages,
 		0,
 	);
+	match gas_mode {
+		"zero" => context.gas = 0,
+		"child" | "funded" => context.gas = 1_000_000,
+		_ => {},
+	}
 	// The immutable package must be rebuilt after changing its lookup anchor.
 	let encoded = jam_codec::Encode::encode(&context.work_package);
 	let mut package: jam_types::WorkPackage = jam_codec::Decode::decode(&mut &encoded[..])
@@ -285,8 +300,16 @@ pub(super) fn execute_authorized(
 	let (actual, _, _) = engine.refine(service_hash, RefineCallContext::from(&mut context));
 	match actual {
 		// The hazmat API does not expose the error enum. Compare its exact
-		// variant, as the accumulate recovery adapter does; gas errors fail.
+		// variant, as the accumulate recovery adapter does. Only explicit gas
+		// scenarios admit exhaustion; ordinary traces still reject it.
 		Err(error) if format!("{error:?}") == "Trap" => Ok((None, auth)),
+		Err(error)
+			if gas_mode != "normal" &&
+				gas_mode != "funded" &&
+				format!("{error:?}") == "NotEnoughGas" =>
+		{
+			Ok((None, auth))
+		},
 		Err(error) => Err(format!("unexpected refine VM failure: {error:?}")),
 		Ok(output) => {
 			let mut actual = ParachainWorkDigest::decode_all(&mut &output[..])

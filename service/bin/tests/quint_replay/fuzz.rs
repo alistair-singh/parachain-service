@@ -948,8 +948,11 @@ fn refine_generated_works() {
 	// Focused boundary regressions remain test-only; the server uses the
 	// default campaign, which now executes refine before accumulate.
 	let mut byte_faults = std::collections::BTreeSet::new();
+	let mut gas_modes = std::collections::BTreeSet::new();
 	let mut outcomes = std::collections::BTreeSet::new();
-	for (source, module) in [("refine_fuzz", "fuzz"), ("refine_bytes", "byte_fuzz")] {
+	for (source, module) in
+		[("refine_fuzz", "fuzz"), ("refine_bytes", "byte_fuzz"), ("refine_gas", "gas_fuzz")]
+	{
 		let stream = Command::new("node")
 			.current_dir(root())
 			.args([
@@ -967,6 +970,10 @@ fn refine_generated_works() {
 		for line in String::from_utf8(stream.stdout).unwrap().lines() {
 			let envelope: Value = serde_json::from_str(line).unwrap();
 			for state in envelope["trace"]["states"].as_array().unwrap().iter().skip(1) {
+				gas_modes.insert((
+					state["replayRefine"]["value"]["gasMode"].as_str().unwrap().to_owned(),
+					state["replayRefine"]["value"]["available"].as_bool().unwrap(),
+				));
 				byte_faults.insert(
 					state["replayRefine"]["value"]["byteFault"].as_str().unwrap().to_owned(),
 				);
@@ -982,6 +989,14 @@ fn refine_generated_works() {
 			}
 			replay::document_trace(&envelope["trace"])
 				.unwrap_or_else(|error| panic!("seed {}: {error}", envelope["seed"]));
+		}
+	}
+	for mode in ["zero", "funded", "child"] {
+		for available in [false, true] {
+			assert!(
+				gas_modes.contains(&(mode.to_owned(), available)),
+				"missing gas mode {mode}/{available}"
+			);
 		}
 	}
 	for fault in [

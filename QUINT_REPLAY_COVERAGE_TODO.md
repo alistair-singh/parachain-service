@@ -5,7 +5,7 @@ removed from this list; current coverage is documented in
 [the fixture guide](service/bin/tests/fixtures/quint/README.md).
 These are replay coverage limits; separate Rust tests cover some excluded cases.
 
-Prioritize Refine gas exhaustion and the remaining Accumulate write-site audit.
+Prioritize the remaining Accumulate write-site audit.
 
 ## 1 Accumulate storage failures and recovery
 
@@ -18,8 +18,9 @@ Prioritize Refine gas exhaustion and the remaining Accumulate write-site audit.
 - [ ] TODO: Extend invalid PVF coverage beyond empty, bad-magic, and truncated
   binaries to structurally valid containers with invalid memory maps or missing
   entry points; integrate byte faults into Refine → Accumulate campaigns.
-- [ ] TODO: Cover arbitrary PVF execution and Refine gas exhaustion with
-  independent expectations.
+- [ ] TODO: Extend beyond zero-entry and infinite-child gas exhaustion to arbitrary
+  PVF execution and instruction cutoffs with independent expectations; integrate
+  gas faults into Refine → Accumulate campaigns.
 - [ ] TODO: Extend package inputs beyond the adapter's one-or-two-item domain
   and identical code references, including invalid item counts and heterogeneous
   references. Resolve model-to-Rust error representation gaps explicitly.

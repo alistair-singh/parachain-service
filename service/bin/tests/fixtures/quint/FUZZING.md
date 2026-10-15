@@ -464,10 +464,13 @@ ordered batches, errors, and checkpoint recovery. Mutation tests independently
 corrupt the script, expected digest, expected accumulated state, and metadata.
 `refine_fuzz.qnt` remains a focused test-only generator for declaration ordering
 and message byte/count boundaries. `refine_bytes.qnt` adds a separate campaign
-for malformed candidate encodings and invalid PVF headers. The ignored
+for malformed candidate encodings and invalid PVF headers. `refine_gas.qnt`
+samples zero gas, a finite-budget infinite child loop, and a funded control, each
+with and without the code preimage. The ignored
 `refine_generated_works` test runs ten seeds of twenty steps for each campaign,
-requiring every byte fault and the existing outcome classes. These standalone
-generators are not selectable continuous campaign profiles; their byte-failure
+requiring every byte fault, each gas mode/availability pair, and the existing
+outcome classes. These standalone
+generators are not selectable continuous campaign profiles; their byte/gas-failure
 oracle is a local extension of the typed model (see the fixture guide).
 See the [adapter limits](../../../../../QUINT_REPLAY.md#combined-campaign).
 

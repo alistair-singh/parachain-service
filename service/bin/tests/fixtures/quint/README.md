@@ -234,6 +234,14 @@ check lookup-before-PVF-parsing precedence; a later valid invocation checks reco
 Mutation tests detect bypassed byte faults, and generated coverage requires every
 fault plus the existing Refine outcomes. These byte faults are not yet integrated
 with Accumulate, and do not cover every structural PVF parser failure.
+`refine_gas.qnt` samples zero entry gas and a scripted infinite child loop with a
+finite 1,000,000 gas budget. Its local oracle predicts whole-work failure without
+calibrating against Rust outputs. A funded control executes the same declarations
+without the loop at that budget; missing-code cases check lookup precedence, and
+fixtures execute a funded call after exhaustion. Mutations remove the gas fault
+and must disagree with the oracle. Ordinary traces still reject unexpected gas
+errors. This covers entry and child exhaustion, not arbitrary instruction cutoffs
+or arbitrary PVFs, and is not yet integrated with Accumulate.
 `refine_errors/` supplies errors directly to accumulate. Regenerate fixtures with
 `scripts/generate-quint-replays.py`. All use the same parser and saved-failure
 replay entry point; see [FUZZING.md](FUZZING.md).

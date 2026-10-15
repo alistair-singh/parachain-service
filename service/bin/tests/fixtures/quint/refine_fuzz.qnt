@@ -8,7 +8,7 @@ module fuzz {
 
   type Input = {
     pkg: WorkPackage, missingPrefix: bool, available: bool,
-    calls: List[CodeCall], anchor: int, byteFault: str
+    calls: List[CodeCall], anchor: int, byteFault: str, gasMode: str
   }
   var replayRefine: Option[Input]
   var replayRefineExpected: List[WorkExecResult]
@@ -25,7 +25,8 @@ module fuzz {
     // The typed upstream model cannot represent malformed wire bytes. This
     // boundary extension predicts abnormal exits independently of Rust (§4.1/4.2).
     // Lookup precedes executable parsing, but candidate decoding precedes lookup.
-    replayRefineExpected' = if (input.byteFault == "candidate_empty" or
+    replayRefineExpected' = if (input.gasMode == "zero" or
+      (input.gasMode == "child" and input.available) or input.byteFault == "candidate_empty" or
       input.byteFault == "candidate_truncated" or input.byteFault == "candidate_trailing" or
       (input.available and input.byteFault != "valid")) List(WorkErr)
       else refine(modelState(input.available), input.pkg,
@@ -33,7 +34,7 @@ module fuzz {
   }
   pure def input(calls: List[CodeCall]): Input = {
     pkg: { authorizedParas: List(CoretimeParaId), items: List(candidate) },
-    missingPrefix: false, available: true, calls: calls, anchor: 0, byteFault: "valid"
+    missingPrefix: false, available: true, calls: calls, anchor: 0, byteFault: "valid", gasMode: "normal"
   }
   pure val declarations = List(SetParentHeadHash(headHash(0)), SetHead(1))
   pure val callMenu: Set[CodeCall] = Set(
@@ -71,8 +72,17 @@ module fuzz {
       items: if (mode == 9) List(candidate, candidate) else List(candidate)
     }
     invoke({ pkg: pkg, missingPrefix: mode == 7, available: available,
-      calls: calls, anchor: anchor, byteFault: "valid" })
+      calls: calls, anchor: anchor, byteFault: "valid", gasMode: "normal" })
   }
+
+  // Zero cannot execute; an infinite child cannot finish with finite gas.
+  // The funded control executes the same declarations with the same gas budget.
+  run gas_exhaustion_works = replayInit
+    .then(invoke({ ...input(declarations), gasMode: "zero" }))
+    .then(invoke({ ...input(declarations), gasMode: "funded" }))
+    .then(invoke({ ...input(declarations), gasMode: "child" }))
+    .then(invoke({ ...input(declarations), gasMode: "child", available: false }))
+    .then(invoke({ ...input(declarations), gasMode: "funded" }))
 
   run malformed_candidate_works = replayInit
     .then(invoke({ ...input(declarations), byteFault: "candidate_empty" }))
