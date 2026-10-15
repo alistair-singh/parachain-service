@@ -226,6 +226,14 @@ see the [fuzzing guide](FUZZING.md#outgoing-spendable-balance-boundaries).
 The default `fuzz.qnt` campaign retains refine inputs and runs Rust Refine before
 Rust Accumulate. `combined.qnt` and `combined/` contain end-to-end fixtures.
 `refine_fuzz.qnt` and `refine_fuzz/` retain focused standalone boundary regressions;
+`refine_bytes.qnt` separately samples empty/truncated/trailing candidate payloads and
+empty/bad-magic/truncated PVF binaries. Their whole-work failure expectations
+come from an explicit local Quint boundary extension (§4.1/4.2), because the
+upstream typed model cannot express malformed bytes. Missing-preimage fixtures
+check lookup-before-PVF-parsing precedence; a later valid invocation checks recovery.
+Mutation tests detect bypassed byte faults, and generated coverage requires every
+fault plus the existing Refine outcomes. These byte faults are not yet integrated
+with Accumulate, and do not cover every structural PVF parser failure.
 `refine_errors/` supplies errors directly to accumulate. Regenerate fixtures with
 `scripts/generate-quint-replays.py`. All use the same parser and saved-failure
 replay entry point; see [FUZZING.md](FUZZING.md).

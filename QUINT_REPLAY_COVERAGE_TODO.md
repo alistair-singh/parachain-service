@@ -5,8 +5,7 @@ removed from this list; current coverage is documented in
 [the fixture guide](service/bin/tests/fixtures/quint/README.md).
 These are replay coverage limits; separate Rust tests cover some excluded cases.
 
-Prioritize Refine malformed-byte and invalid-executable coverage, then gas
-exhaustion and the remaining Accumulate write-site audit.
+Prioritize Refine gas exhaustion and the remaining Accumulate write-site audit.
 
 ## 1 Accumulate storage failures and recovery
 
@@ -16,8 +15,9 @@ exhaustion and the remaining Accumulate write-site audit.
 
 ## 2 Refine executable, byte, and package domains
 
-- [ ] TODO: Cover malformed candidate payloads and invalid PVF binaries. Replay
-  currently constructs valid candidate encodings and runs a scripted interpreter PVF.
+- [ ] TODO: Extend invalid PVF coverage beyond empty, bad-magic, and truncated
+  binaries to structurally valid containers with invalid memory maps or missing
+  entry points; integrate byte faults into Refine → Accumulate campaigns.
 - [ ] TODO: Cover arbitrary PVF execution and Refine gas exhaustion with
   independent expectations.
 - [ ] TODO: Extend package inputs beyond the adapter's one-or-two-item domain

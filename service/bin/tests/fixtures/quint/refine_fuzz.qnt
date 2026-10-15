@@ -1,5 +1,5 @@
 // Standalone Refine differential replay. The script is input, not an oracle:
-// every expected result is computed by the pinned Refine implementation.
+// typed inputs use pinned Refine; wire faults use the explicit boundary oracle below.
 module fuzz {
   import types.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/types"
   import messages.* from "../../../../../vendor/polkadot-sdk-quint/designs/parachain-service-on-jam/quint/messages"
@@ -8,7 +8,7 @@ module fuzz {
 
   type Input = {
     pkg: WorkPackage, missingPrefix: bool, available: bool,
-    calls: List[CodeCall], anchor: int
+    calls: List[CodeCall], anchor: int, byteFault: str
   }
   var replayRefine: Option[Input]
   var replayRefineExpected: List[WorkExecResult]
@@ -22,12 +22,18 @@ module fuzz {
   action replayInit = all { replayRefine' = None, replayRefineExpected' = List() }
   action invoke(input: Input): bool = all {
     replayRefine' = Some(input),
-    replayRefineExpected' = refine(modelState(input.available), input.pkg,
-      input.missingPrefix, input.calls, input.anchor)
+    // The typed upstream model cannot represent malformed wire bytes. This
+    // boundary extension predicts abnormal exits independently of Rust (§4.1/4.2).
+    // Lookup precedes executable parsing, but candidate decoding precedes lookup.
+    replayRefineExpected' = if (input.byteFault == "candidate_empty" or
+      input.byteFault == "candidate_truncated" or input.byteFault == "candidate_trailing" or
+      (input.available and input.byteFault != "valid")) List(WorkErr)
+      else refine(modelState(input.available), input.pkg,
+        input.missingPrefix, input.calls, input.anchor)
   }
   pure def input(calls: List[CodeCall]): Input = {
     pkg: { authorizedParas: List(CoretimeParaId), items: List(candidate) },
-    missingPrefix: false, available: true, calls: calls, anchor: 0
+    missingPrefix: false, available: true, calls: calls, anchor: 0, byteFault: "valid"
   }
   pure val declarations = List(SetParentHeadHash(headHash(0)), SetHead(1))
   pure val callMenu: Set[CodeCall] = Set(
@@ -65,9 +71,21 @@ module fuzz {
       items: if (mode == 9) List(candidate, candidate) else List(candidate)
     }
     invoke({ pkg: pkg, missingPrefix: mode == 7, available: available,
-      calls: calls, anchor: anchor })
+      calls: calls, anchor: anchor, byteFault: "valid" })
   }
 
+  run malformed_candidate_works = replayInit
+    .then(invoke({ ...input(declarations), byteFault: "candidate_empty" }))
+    .then(invoke({ ...input(declarations), byteFault: "candidate_truncated" }))
+    .then(invoke({ ...input(declarations), byteFault: "candidate_trailing" }))
+    .then(invoke({ ...input(declarations), byteFault: "candidate_empty", available: false }))
+    .then(invoke(input(declarations)))
+  run invalid_pvf_works = replayInit
+    .then(invoke({ ...input(declarations), byteFault: "pvf_empty" }))
+    .then(invoke({ ...input(declarations), byteFault: "pvf_magic" }))
+    .then(invoke({ ...input(declarations), byteFault: "pvf_truncated" }))
+    .then(invoke({ ...input(declarations), byteFault: "pvf_magic", available: false }))
+    .then(invoke(input(declarations)))
   run success_works = replayInit.then(invoke(input(declarations)))
   run ordering_works = replayInit
     .then(invoke(input(List(ReportError(64), Panic))))

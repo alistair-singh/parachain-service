@@ -463,7 +463,12 @@ occurs after the refinement check.
 ordered batches, errors, and checkpoint recovery. Mutation tests independently
 corrupt the script, expected digest, expected accumulated state, and metadata.
 `refine_fuzz.qnt` remains a focused test-only generator for declaration ordering
-and message byte/count boundaries; it is not a selectable campaign profile.
+and message byte/count boundaries. `refine_bytes.qnt` adds a separate campaign
+for malformed candidate encodings and invalid PVF headers. The ignored
+`refine_generated_works` test runs ten seeds of twenty steps for each campaign,
+requiring every byte fault and the existing outcome classes. These standalone
+generators are not selectable continuous campaign profiles; their byte-failure
+oracle is a local extension of the typed model (see the fixture guide).
 See the [adapter limits](../../../../../QUINT_REPLAY.md#combined-campaign).
 
 ## Storage recovery campaign

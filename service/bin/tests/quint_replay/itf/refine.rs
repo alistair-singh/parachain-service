@@ -215,9 +215,29 @@ pub(super) fn execute_authorized(
 		});
 	}
 	let abstract_code = codex.code_hash(integer(field(field(reference, "hash")?, "vchBytes")?)?)?;
-	let pvf = cargo_jam_build::blob("refine-replay-pvf");
+	let byte_fault = input
+		.get("byteFault")
+		.map(|v| v.as_str().ok_or("byteFault must be string"))
+		.transpose()?
+		.unwrap_or("valid");
+	let mut pvf = cargo_jam_build::blob("refine-replay-pvf").to_vec();
+	match byte_fault {
+		"valid" | "candidate_empty" | "candidate_truncated" | "candidate_trailing" => {},
+		"pvf_empty" => pvf.clear(),
+		"pvf_magic" => pvf[0] ^= 0xff,
+		"pvf_truncated" => pvf.truncate(4),
+		_ => return Err(format!("unsupported byteFault {byte_fault}")),
+	}
 	let code = validation_code_hash(&pvf);
-	let payload = ParachainCandidate { validation_code: code }.encode();
+	let mut payload = ParachainCandidate { validation_code: code }.encode();
+	match byte_fault {
+		"candidate_empty" => payload.clear(),
+		"candidate_truncated" => {
+			payload.pop();
+		},
+		"candidate_trailing" => payload.push(0),
+		_ => {},
+	}
 	let work = (0..items.len())
 		.map(|_| refine_work_item(service, payload.clone(), vec![script.encode()]))
 		.collect();

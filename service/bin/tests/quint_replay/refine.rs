@@ -8,6 +8,8 @@ const SUCCESS: &str = include_str!("../fixtures/quint/refine_fuzz/success_works.
 fn trivial_works() {
 	for fixture in [
 		SUCCESS,
+		include_str!("../fixtures/quint/refine_fuzz/malformed_candidate_works.itf.json"),
+		include_str!("../fixtures/quint/refine_fuzz/invalid_pvf_works.itf.json"),
 		include_str!("../fixtures/quint/refine_fuzz/ordering_works.itf.json"),
 		include_str!("../fixtures/quint/refine_fuzz/lookup_works.itf.json"),
 	] {
@@ -37,4 +39,16 @@ fn missing_input_errors() {
 	assert!(replay::document_trace(&trace)
 		.unwrap_err()
 		.contains("missing field replayRefine"));
+}
+
+#[test]
+fn bypass_byte_fault_errors() {
+	for fixture in [
+		include_str!("../fixtures/quint/refine_fuzz/malformed_candidate_works.itf.json"),
+		include_str!("../fixtures/quint/refine_fuzz/invalid_pvf_works.itf.json"),
+	] {
+		let mut trace: Value = serde_json::from_str(fixture).unwrap();
+		trace["states"][1]["replayRefine"]["value"]["byteFault"] = json!("valid");
+		assert!(replay::document_trace(&trace).unwrap_err().contains("expected WorkErr"));
+	}
 }

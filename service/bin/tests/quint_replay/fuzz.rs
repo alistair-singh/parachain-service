@@ -947,35 +947,53 @@ fn designation_privilege_generated_works() {
 fn refine_generated_works() {
 	// Focused boundary regressions remain test-only; the server uses the
 	// default campaign, which now executes refine before accumulate.
-	let stream = Command::new("node")
-		.current_dir(root())
-		.args([
-			"scripts/quint-replay-stream.cjs",
-			"service/bin/tests/fixtures/quint/refine_fuzz.qnt",
-			"1",
-			"1",
-			"10",
-			"20",
-		])
-		.output()
-		.expect("refine generator");
-	assert!(stream.status.success(), "{}", String::from_utf8_lossy(&stream.stderr));
+	let mut byte_faults = std::collections::BTreeSet::new();
 	let mut outcomes = std::collections::BTreeSet::new();
-	for line in String::from_utf8(stream.stdout).unwrap().lines() {
-		let envelope: Value = serde_json::from_str(line).unwrap();
-		for state in envelope["trace"]["states"].as_array().unwrap().iter().skip(1) {
-			let result = &state["replayRefineExpected"][0];
-			let tag = if result["tag"] == "WorkErr" {
-				"WorkErr"
-			} else if result["value"]["tag"] == "Ok" {
-				"Ok"
-			} else {
-				result["value"]["value"]["error"]["tag"].as_str().unwrap()
-			};
-			outcomes.insert(tag.to_owned());
+	for (source, module) in [("refine_fuzz", "fuzz"), ("refine_bytes", "byte_fuzz")] {
+		let stream = Command::new("node")
+			.current_dir(root())
+			.args([
+				"scripts/quint-replay-stream.cjs",
+				&format!("service/bin/tests/fixtures/quint/{source}.qnt"),
+				"1",
+				"1",
+				"10",
+				"20",
+				module,
+			])
+			.output()
+			.expect("refine generator");
+		assert!(stream.status.success(), "{}", String::from_utf8_lossy(&stream.stderr));
+		for line in String::from_utf8(stream.stdout).unwrap().lines() {
+			let envelope: Value = serde_json::from_str(line).unwrap();
+			for state in envelope["trace"]["states"].as_array().unwrap().iter().skip(1) {
+				byte_faults.insert(
+					state["replayRefine"]["value"]["byteFault"].as_str().unwrap().to_owned(),
+				);
+				let result = &state["replayRefineExpected"][0];
+				let tag = if result["tag"] == "WorkErr" {
+					"WorkErr"
+				} else if result["value"]["tag"] == "Ok" {
+					"Ok"
+				} else {
+					result["value"]["value"]["error"]["tag"].as_str().unwrap()
+				};
+				outcomes.insert(tag.to_owned());
+			}
+			replay::document_trace(&envelope["trace"])
+				.unwrap_or_else(|error| panic!("seed {}: {error}", envelope["seed"]));
 		}
-		replay::document_trace(&envelope["trace"])
-			.unwrap_or_else(|error| panic!("seed {}: {error}", envelope["seed"]));
+	}
+	for fault in [
+		"valid",
+		"candidate_empty",
+		"candidate_truncated",
+		"candidate_trailing",
+		"pvf_empty",
+		"pvf_magic",
+		"pvf_truncated",
+	] {
+		assert!(byte_faults.contains(fault), "missing byte fault {fault}");
 	}
 	for expected in [
 		"Ok",
