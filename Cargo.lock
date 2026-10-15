@@ -3165,6 +3165,7 @@ dependencies = [
  "parachain-service-core",
  "parity-scale-codec",
  "polkavm",
+ "polkavm-common 0.36.0",
  "primitive-types",
  "refine-replay-pvf",
  "serde_json",

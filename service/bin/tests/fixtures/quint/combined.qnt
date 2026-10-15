@@ -11,6 +11,23 @@ module combined {
     replayCandidate(svc, CoretimeParaId, parent, activeCodeCandidate(svc, CoretimeParaId),
       mode, now, 7, List(SetKV({ key: List(1), value: List(parent + 1) })))
 
+  // Byte faults are outside the typed upstream Refine domain. The boundary
+  // oracle predicts whole-work failure; upstream Accumulate handles WorkErr.
+  def malformed(fault: str): RefinedWork = {
+    val p = candidate(svc.paraInfo(CoretimeParaId).headData, 0)
+    { input: { ...p.input, byteFault: fault },
+      work: { ...p.work, result: WorkErr } }
+  }
+  run malformed_works = replayInit
+    .then(refinedBlock(List(malformed("candidate_empty"), malformed("candidate_truncated"),
+      malformed("candidate_trailing")), 1))
+    .then(refinedBlock(List(malformed("pvf_empty"), malformed("pvf_magic"),
+      malformed("pvf_truncated"), malformed("pvf_memory"), malformed("pvf_entry")), 2))
+    .then(refinedBlock(List(candidate(0, 0)), 3))
+    .then(refinedBlock(List(malformed("pvf_entry"), candidate(1, 0),
+      malformed("pvf_memory")), 4))
+    .then(refinedBlock(List(candidate(2, 0)), 5))
+
   run single_works = replayInit.then(refinedBlock(List(candidate(0, 0)), 1))
     .then(refinedBlock(List(candidate(1, 0)), 2))
   run ordered_batch_works = replayInit.then(refinedBlock(

@@ -236,6 +236,40 @@ pub(super) fn execute_authorized(
 		"pvf_empty" => pvf.clear(),
 		"pvf_magic" => pvf[0] ^= 0xff,
 		"pvf_truncated" => pvf.truncate(4),
+		"pvf_memory" | "pvf_entry" => {
+			use polkavm_common::{
+				program::{Instruction, InstructionSetKind},
+				writer::ProgramBlobBuilder,
+			};
+			let mut builder = ProgramBlobBuilder::new(InstructionSetKind::JamV1);
+			builder.set_code(&[Instruction::trap], &[]);
+			if byte_fault == "pvf_memory" {
+				builder.set_rw_data_size(u32::MAX);
+				builder.add_export_by_instruction(
+					0,
+					parachain_service::pvf::PVF_ENTRY_POINT.as_bytes(),
+				);
+			}
+			pvf = builder.into_vec().map_err(|e| format!("fault container: {e}"))?;
+			// Both fixtures must parse as containers; only the intended semantic
+			// validation fails. Keep this separate from the Quint outcome oracle.
+			polkavm::ProgramBlob::parse(pvf.clone().into())
+				.map_err(|e| format!("fault container does not parse: {e}"))?;
+			let parsed = parachain_service::pvf::pvm::parse_pvf(&pvf);
+			let intended = matches!(
+				(&parsed, byte_fault),
+				(
+					Err(parachain_service::pvf::pvm::PvfParseError::InvalidMemoryMap(_)),
+					"pvf_memory"
+				) | (
+					Err(parachain_service::pvf::pvm::PvfParseError::MissingEntryPoint),
+					"pvf_entry"
+				)
+			);
+			if !intended {
+				return Err("fault container missed intended parse failure".into());
+			}
+		},
 		_ => return Err(format!("unsupported byteFault {byte_fault}")),
 	}
 	let code = validation_code_hash(&pvf);

@@ -1010,6 +1010,8 @@ fn refine_generated_works() {
 		"pvf_empty",
 		"pvf_magic",
 		"pvf_truncated",
+		"pvf_memory",
+		"pvf_entry",
 	] {
 		assert!(byte_faults.contains(fault), "missing byte fault {fault}");
 	}
@@ -1233,5 +1235,51 @@ fn kv_charge_generated_works() {
 				);
 			}
 		}
+	}
+}
+
+#[test]
+#[ignore = "executes malformed Refine inputs through Accumulate; requires Node and Quint 0.32.0"]
+fn refine_bytes_pipeline_generated_works() {
+	let stream = Command::new("node")
+		.current_dir(root())
+		.args([
+			"scripts/quint-replay-stream.cjs",
+			"service/bin/tests/fixtures/quint/refine_bytes_pipeline.qnt",
+			"1",
+			"1",
+			"10",
+			"20",
+			"byte_pipeline",
+		])
+		.output()
+		.expect("byte pipeline generator");
+	assert!(stream.status.success(), "{}", String::from_utf8_lossy(&stream.stderr));
+	let mut faults = std::collections::BTreeSet::new();
+	for line in String::from_utf8(stream.stdout).unwrap().lines() {
+		let mut envelope: Value = serde_json::from_str(line).unwrap();
+		envelope["trace"]["replayRefineRequired"] = Value::Bool(true);
+		for state in envelope["trace"]["states"].as_array().unwrap().iter().skip(1) {
+			faults.insert(
+				state["replayRefineInputs"]["value"][0]["byteFault"]
+					.as_str()
+					.unwrap()
+					.to_owned(),
+			);
+		}
+		replay::document_trace(&envelope["trace"])
+			.unwrap_or_else(|error| panic!("seed {}: {error}", envelope["seed"]));
+	}
+	for fault in [
+		"candidate_empty",
+		"candidate_truncated",
+		"candidate_trailing",
+		"pvf_empty",
+		"pvf_magic",
+		"pvf_truncated",
+		"pvf_memory",
+		"pvf_entry",
+	] {
+		assert!(faults.contains(fault), "missing pipeline fault {fault}");
 	}
 }

@@ -227,13 +227,20 @@ The default `fuzz.qnt` campaign retains refine inputs and runs Rust Refine befor
 Rust Accumulate. `combined.qnt` and `combined/` contain end-to-end fixtures.
 `refine_fuzz.qnt` and `refine_fuzz/` retain focused standalone boundary regressions;
 `refine_bytes.qnt` separately samples empty/truncated/trailing candidate payloads and
-empty/bad-magic/truncated PVF binaries. Their whole-work failure expectations
+empty/bad-magic/truncated PVF binaries, plus structurally valid containers with
+invalid memory maps or missing entry points. The adapter checks that these
+containers reach their intended parse failures. Their whole-work failure expectations
 come from an explicit local Quint boundary extension (§4.1/4.2), because the
 upstream typed model cannot express malformed bytes. Missing-preimage fixtures
 check lookup-before-PVF-parsing precedence; a later valid invocation checks recovery.
 Mutation tests detect bypassed byte faults, and generated coverage requires every
-fault plus the existing Refine outcomes. These byte faults are not yet integrated
-with Accumulate, and do not cover every structural PVF parser failure.
+fault plus the existing Refine outcomes. `combined/malformed_works.itf.json`
+checks failed-only batches, mixed valid/failed work, and later valid invocations.
+`refine_bytes_pipeline.qnt` generates 10 seeds of 20 blocks, with malformed work
+before and after valid work in each block; coverage requires all eight faults.
+Both stages compare against independent Quint expectations, including retained
+Accumulate state. This does not cover every structural PVF parser failure or
+arbitrary malformed byte distributions.
 `refine_gas.qnt` samples zero entry gas and a scripted infinite child loop with a
 finite 1,000,000 gas budget. Its local oracle predicts whole-work failure without
 calibrating against Rust outputs. A funded control executes the same declarations

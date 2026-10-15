@@ -19,9 +19,6 @@ Prioritize the remaining Accumulate write-site audit.
 
 ## 2 Refine executable, byte, and package domains
 
-- [ ] TODO: Extend invalid PVF coverage beyond empty, bad-magic, and truncated
-  binaries to structurally valid containers with invalid memory maps or missing
-  entry points; integrate byte faults into Refine → Accumulate campaigns.
 - [ ] TODO: Extend beyond zero-entry and infinite-child gas exhaustion to arbitrary
   PVF execution and instruction cutoffs with independent expectations; integrate
   gas faults into Refine → Accumulate campaigns.

@@ -8,6 +8,7 @@ const SUCCESS: &str = include_str!("../fixtures/quint/refine_fuzz/success_works.
 fn trivial_works() {
 	for fixture in [
 		SUCCESS,
+		include_str!("../fixtures/quint/refine_fuzz/structured_pvf_works.itf.json"),
 		include_str!("../fixtures/quint/refine_fuzz/gas_exhaustion_works.itf.json"),
 		include_str!("../fixtures/quint/refine_fuzz/malformed_candidate_works.itf.json"),
 		include_str!("../fixtures/quint/refine_fuzz/invalid_pvf_works.itf.json"),

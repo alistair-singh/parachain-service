@@ -8,6 +8,7 @@ const SINGLE: &str = include_str!("../fixtures/quint/combined/single_works.itf.j
 fn trivial_works() {
 	for trace in [
 		SINGLE,
+		include_str!("../fixtures/quint/combined/malformed_works.itf.json"),
 		include_str!("../fixtures/quint/combined/ordered_batch_works.itf.json"),
 		include_str!("../fixtures/quint/combined/errors_works.itf.json"),
 		include_str!("../fixtures/quint/combined/checkpoint_works.itf.json"),
@@ -52,4 +53,19 @@ fn bypass_refine_errors() {
 	let mut trace: Value = serde_json::from_str(SINGLE).unwrap();
 	trace["states"][1]["replayRefineInputs"] = json!({"tag":"None","value":{"#tup":[]}});
 	assert!(replay::document_trace(&trace).unwrap_err().contains("requires refine inputs"));
+}
+
+#[test]
+fn bypass_byte_fault_errors() {
+	for (frame, count) in [(1, 3), (2, 5)] {
+		for input in 0..count {
+			let mut trace: Value = serde_json::from_str(include_str!(
+				"../fixtures/quint/combined/malformed_works.itf.json"
+			))
+			.unwrap();
+			trace["states"][frame]["replayRefineInputs"]["value"][input]["byteFault"] =
+				json!("valid");
+			assert!(replay::document_trace(&trace).unwrap_err().contains("expected WorkErr"));
+		}
+	}
 }

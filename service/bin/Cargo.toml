@@ -46,6 +46,7 @@ primitive-types = { workspace = true, optional = true }
 jam-types = { workspace = true, optional = true }
 
 [dev-dependencies]
+polkavm-common = "=0.36.0"
 refine-replay-pvf = { path = "../../testing/refine-replay-pvf" }
 log = "0.4"
 jam-codec = { workspace = true, features = ["std"] }

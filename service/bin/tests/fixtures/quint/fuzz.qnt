@@ -63,7 +63,7 @@ module fuzz {
     val result = if (mode == 1) WorkErr else refine(s, pkg, false, calls, anchor)[0]
     { work: { result: result, authTrace: auth }, input: {
       pkg: pkg, calls: calls, anchor: anchor, missingPrefix: false,
-      available: codeAvailable(s, pkg.items[0].validationCode), skip: mode == 1
+      available: codeAvailable(s, pkg.items[0].validationCode), skip: mode == 1, byteFault: "valid"
     } }
   }
 
@@ -409,7 +409,7 @@ module fuzz {
     val parent = if (svc.isLive(p)) svc.paraInfo(p).headData else 0
     val pkg: WorkPackage = { authorizedParas: List(p),
       items: List({ validationCode: { hash: { vchBytes: h }, len: FixedCodeLen } }) }
-    val input: RefineInput = { pkg: pkg, missingPrefix: false, skip: false,
+    val input: RefineInput = { pkg: pkg, missingPrefix: false, skip: false, byteFault: "valid",
       available: codeAvailable(svc, pkg.items[0].validationCode), anchor: now,
       calls: List(SetParentHeadHash(headHash(parent)), SetHead(parent + 1)).concat(sends(msgs)) }
     all { lifecycleWork(p, h, msgs, gap), noGasWithRefine(Some(List(input))) }

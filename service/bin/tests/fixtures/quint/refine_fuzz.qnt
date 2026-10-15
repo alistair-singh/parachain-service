@@ -96,6 +96,12 @@ module fuzz {
     .then(invoke({ ...input(declarations), byteFault: "pvf_truncated" }))
     .then(invoke({ ...input(declarations), byteFault: "pvf_magic", available: false }))
     .then(invoke(input(declarations)))
+  run structured_pvf_works = replayInit
+    .then(invoke({ ...input(declarations), byteFault: "pvf_memory" }))
+    .then(invoke({ ...input(declarations), byteFault: "pvf_entry" }))
+    .then(invoke({ ...input(declarations), byteFault: "pvf_memory", available: false }))
+    .then(invoke({ ...input(declarations), byteFault: "pvf_entry", available: false }))
+    .then(invoke(input(declarations)))
   run success_works = replayInit.then(invoke(input(declarations)))
   run ordering_works = replayInit
     .then(invoke(input(List(ReportError(64), Panic))))
