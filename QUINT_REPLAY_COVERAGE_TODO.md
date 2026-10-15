@@ -1,80 +1,64 @@
 # Quint replay coverage TODO
 
-Follow-up coverage gaps from the October 2026 audit. The existing
-[Accumulate TODO](QUINT_REPLAY_TODO.md) records earlier completed work.
-Items 5 and 6 are the first implementation priorities. These are replay coverage
-limits; separate Rust tests cover some excluded cases.
+Remaining Rust–Quint replay gaps from the October 2026 audit. Completed work is
+removed from this list; current coverage is documented in
+[the fixture guide](service/bin/tests/fixtures/quint/README.md).
+These are replay coverage limits; separate Rust tests cover some excluded cases.
 
-## 1 Authorization pipeline
+Prioritize inline assignment recovery, the authorization pipeline, then Refine
+malformed-byte, executable, and gas coverage.
 
-- [ ] TODO: Execute IsAuthorized before Refine and Accumulate, including invalid
-  signatures, malformed configuration/token/trace bytes, and package counts.
+## 1 Accumulate storage failures and recovery
 
-## 2 Refine executable and byte domains
-
-- [ ] TODO: Cover invalid PVF binaries, malformed candidate payloads, arbitrary
-  executable behavior, and Refine gas exhaustion with independent expectations.
-  The current interpreter PVF executes generated host-call scripts.
-
-## 3 Historical lookup lifecycle
-
-- [ ] TODO: Exercise actual historical availability across provision, forgetting,
-  code upgrades, and lookup anchors instead of an isolated availability input.
-
-## 4 Successful supervision operations
-
-- [ ] TODO: Add mutable supervision and supervisor balances to the host, then
-  replay successful foreign preimage operations, storage removal, handoffs,
-  ejection, supervised transfers, and incoming balance selectors.
-
-## 5 Individual host calls
-
-- [x] Compare successful assignment arguments and order, including repeated
-  writes to one core and independent cores, with checkpoint-aware rollback.
-- [x] Retain and compare every successful designation and service upgrade,
-  including intermediate and repeated calls overwritten before invocation return.
-  Check interleaved call order, checkpoint rollback, and mutations preserving final
-  effects; generated traces require the history metadata.
-- [x] Preserve final assignment-effect comparisons and add mutations that leave final
-  effects unchanged while corrupting the intermediate call history. The host
-  observation is gated by PolkaJAM's `hazmat` feature.
-
-## 6 Storage failures and recovery combinations
-
-- [x] Add `storage_recovery`: head, KV, incoming queue, registration/forced-head
-  metadata, and staging failures with exhaustion before, inside, and after report
-  checkpoints. Check retained prefixes, incoming credits, free balance, and retries.
-- [x] Add `code_recovery` for forced-code acquisition/metadata and code-announcement
-  storage failures with pre-checkpoint, in-report, and final-checkpoint exhaustion;
-  verify retained references/free balance and retries. Keep natural solicitation
-  traps separate from gas exhaustion.
-- [x] Extend storage recovery to compact-encoded balance growth: all reachable
-  u64 size boundaries, zero/one-byte headroom, rollback, retained growth/shrink
-  refunds and retries.
-- [x] Cover valid nonempty validator finalization under constrained host balance:
-  rejected staging, zero-headroom finalization, rollback, retained designation
-  and released staging deposit.
-- [x] Cover scheduled assignment payload and dirty-index storage rejection,
-  including first-index creation, replacement growth/shrink, index-failure deposit
-  refunds, checkpoint rollback, and funded retries. Rejecting either write must
-  preserve both the previous cache and its due time.
 - [ ] TODO: Extend assignment storage recovery to inline assignments and their
   post-call cache/index writes; include a later due flush after rejected writes.
 - [ ] TODO: Audit remaining upward-message write-site boundaries (including KV
   charge-record growth) and combine failures with gas recovery; never infer the
   oracle from Rust effects.
-- [x] Require every recovery phase, head and metadata failures during interrupted
-  invocations, and later successful invocations in generated coverage assertions.
 
-## 7 Upgrade migrations and transfer delivery
+## 2 Authorization pipeline
 
-- [ ] TODO: Upgrade between genuinely different implementations/storage layouts.
+- [ ] TODO: Execute IsAuthorized before Refine and Accumulate, including invalid
+  signatures and malformed configuration/token/trace bytes.
+
+## 3 Refine executable, byte, and package domains
+
+- [ ] TODO: Cover malformed candidate payloads and invalid PVF binaries. Replay
+  currently constructs valid candidate encodings and runs a scripted interpreter PVF.
+- [ ] TODO: Cover arbitrary PVF execution and Refine gas exhaustion with
+  independent expectations.
+- [ ] TODO: Extend package inputs beyond the adapter's one-or-two-item domain
+  and identical code references, including invalid item counts and heterogeneous
+  references. Resolve model-to-Rust error representation gaps explicitly.
+
+## 4 Refine historical lookup lifecycle
+
+- [ ] TODO: Exercise actual historical availability across provision, forgetting,
+  code upgrades, and lookup anchors instead of an isolated availability input.
+
+## 5 Accumulate upgrade migrations and transfer delivery
+
+- [ ] TODO: Upgrade between different implementations/storage layouts; both
+  replay upgrade blobs currently execute the same implementation.
 - [ ] TODO: Execute destination Accumulate after deferred delivery, including
   self-transfer queue entries, rather than only crediting destination balances.
 
-## 8 Larger generated domains
+## 6 Successful supervision operations — requires host support
+
+- [ ] TODO: Add mutable supervision to the host, then replay successful foreign
+  preimage operations, storage removal, supervisor handoffs, and ejection.
+- [ ] TODO: Add supervisor balances and replay successful supervised transfers
+  and incoming destination-balance selectors. Keep unsupported traces explicitly
+  rejected until the host supports them.
+
+## 7 Generated domains and combined coverage
 
 - [ ] TODO: Generate larger sustained batches and arbitrary byte distributions;
   keep dedicated exact-boundary fixtures and collision-free model mappings.
 - [ ] TODO: Make focused Refine boundary generation available to continuous
   campaigns, with assertions for required outcomes.
+- [ ] TODO: Extend combined Refine → Accumulate campaigns to the dedicated
+  storage-failure/recovery scenarios that currently inject work results directly.
+- [ ] TODO: Broaden sampled Accumulate gas cutoffs and combinations with report
+  rejection and natural traps. Current sampling is not exhaustive across every
+  instruction; preserve independent checkpoint expectations.
