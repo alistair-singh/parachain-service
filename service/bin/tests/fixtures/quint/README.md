@@ -288,6 +288,23 @@ exhaustion. It checks forced-code registry/acquisition and metadata rejection,
 announcement writes, retained references and free balance, and successful retries.
 Natural solicitation traps remain distinct from sampled gas exhaustion.
 
+The `host_mixed/{cleanup_partial,cleanup_full,remove_refund,forget_refund,code_apply}_recovery`
+fixtures cover instruction exhaustion during bucket deletion and endpoint
+persistence, transfer-queue charge refunds, KV deletion/refund, unprovided
+preimage forgetting/registry deletion/refund, and announced-code activation.
+The cleanup setup exceeds reserved queue capacity, so both partial and full
+cleanup actually refund a charge. Later invocations retry the operation, reuse
+released storage, restart the emptied queue, or execute with the activated code.
+
+`write_recovery.rs` checks both sides of every write host call in the interrupted
+report, using zero-based `replayGasBoundary` occurrences (for example,
+`after:write:1`). It also samples five instruction cutoffs inside the report and
+after its final checkpoint. Quint computes rollback and committed-prefix states
+before calibration; probes use only host-call order and gas. Required minimum
+write counts prevent vacuous coverage, and changing the selected checkpoint must
+fail against the original oracle. These are focused fixtures, not exhaustive
+instruction enumeration or generated combinations of all cleanup lifecycles.
+
 ## Ordered designation and upgrade calls
 
 `host_call_inputs.qnt` observes successful effects from model message transitions.

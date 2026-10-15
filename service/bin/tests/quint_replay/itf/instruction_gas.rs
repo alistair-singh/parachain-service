@@ -221,15 +221,32 @@ pub fn limit(
 		let name = boundary.as_str().ok_or("gas boundary must be a string")?;
 		let (side, call) =
 			name.split_once(':').ok_or("gas boundary must be before:call or after:call")?;
-		if !matches!(call, "write" | "new" | "transfer" | "assign" | "read") {
+		if !matches!(
+			call.split(':').next().unwrap(),
+			"write" | "new" | "transfer" | "assign" | "read"
+		) {
 			return Err("unsupported gas boundary call".into());
 		}
-		let index = (start..end).find(|&i| events[i] == call).ok_or_else(|| {
-			format!("gas boundary call absent from selected phase: {:?}", &events[start..end])
-		})?;
+		// Optional zero-based occurrence targets every write in a multi-write
+		// operation, rather than repeatedly stopping at the head-data write.
+		let (call, occurrence) = match call.split_once(':') {
+			Some((call, occurrence)) => (
+				call,
+				occurrence
+					.parse::<usize>()
+					.map_err(|_| "gas boundary occurrence must be an unsigned integer")?,
+			),
+			None => (call, 0),
+		};
+		let index =
+			(start..end).filter(|&i| events[i] == call).nth(occurrence).ok_or_else(|| {
+				format!("gas boundary call absent from selected phase: {:?}", &events[start..end])
+			})?;
 		match side {
 			"before" => Some((index, false)),
-			"after" if index + 1 < end => Some((index + 1, true)),
+			// At a following checkpoint, reaching the attempt pays none of
+			// its fixed charge, so its snapshot has not replaced our prefix.
+			"after" if index + 1 <= end && index + 1 < events.len() => Some((index + 1, true)),
 			_ => return Err("unsupported gas boundary side".into()),
 		}
 	} else {
@@ -271,7 +288,7 @@ pub fn limit(
 	if completed ||
 		(!before_checkpoint && !after_checkpoint && actual.len() <= start) ||
 		final_start.is_some_and(|lo| limit < lo) ||
-		actual.len() > end ||
+		actual.len() > end + usize::from(index == Some((end, true))) ||
 		!events.starts_with(&actual)
 	{
 		return Err(format!(

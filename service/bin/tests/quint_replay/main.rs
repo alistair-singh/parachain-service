@@ -57,3 +57,5 @@ mod storage_recovery;
 mod host_calls;
 
 mod authorization;
+
+mod write_recovery;

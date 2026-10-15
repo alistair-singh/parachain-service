@@ -12,10 +12,6 @@ Prioritize the remaining Accumulate write-site audit.
 - [ ] TODO: Extend KV charge-record boundaries above 2^32 and combine generated
   crossings with instruction gas recovery; generated insertion/overwrite cases
   cover 2^30 and 2^32, while fixed gas recovery covers 2^30.
-- [ ] TODO: Combine cleanup/refund and code-apply write sequences with instruction
-  gas recovery. Their storage writes shrink or retain their footprints, so host
-  deposit rejection is not the missing case; preserve independent checkpoint
-  expectations.
 
 ## 2 Refine executable, byte, and package domains
 

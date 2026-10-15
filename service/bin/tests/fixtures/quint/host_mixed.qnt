@@ -109,4 +109,36 @@ module host_mixed {
     .then(chargeWrite(52, 1, 1))
     .then(normal(AssetHubParaId, List(RemoveKV({ paraId: AssetHubParaId, key: List(83) }))))
 
+  // The model commits only the prefix selected before VM gas calibration.
+  // stop=0 rolls back the message; stop=1 retains it at the final checkpoint.
+  action recoverMessage(message: UpwardMessage, stop: int): bool =
+    hostInvocation(List(replayWork(svc, AssetHubParaId,
+      svc.paraInfo(AssetHubParaId).headData, activeCodeCandidate(svc, AssetHubParaId),
+      0, now, 0, List(message))), now + 1, List(), List(UnlimitedGas), 2000000, stop)
+  action chargedQueue = hostBlockTransfers(2000000, 1024, 0, 4, false, remove81, remove82)
+    .then(hostBlockTransfers(2000000, 3, 300, 4, false, remove81, remove82))
+  run cleanup_partial_recovery_works = replayInit.then(chargedQueue)
+    .then(recoverMessage(CleanUpBucketsUpTo(0), 0))
+    .then(recoverMessage(CleanUpBucketsUpTo(0), 1))
+    .then(normal(AssetHubParaId, List(CleanUpBucketsUpTo(10000))))
+  run cleanup_full_recovery_works = replayInit.then(chargedQueue)
+    .then(recoverMessage(CleanUpBucketsUpTo(10000), 0))
+    .then(recoverMessage(CleanUpBucketsUpTo(10000), 1))
+    .then(hostBlockTransfers(2000000, 1, 0, 4, false, remove81, remove82))
+  run remove_refund_recovery_works = replayInit
+    .then(normal(AssetHubParaId, List(storeKV(81, 4096))))
+    .then(recoverMessage(remove81, 0)).then(recoverMessage(remove81, 1))
+    .then(normal(AssetHubParaId, List(storeKV(81, 4096))))
+  run forget_refund_recovery_works = replayInit
+    .then(normal(AssetHubParaId, List(solicit(777, FixedCodeLen))))
+    .then(recoverMessage(forget(777, FixedCodeLen), 0))
+    .then(recoverMessage(forget(777, FixedCodeLen), 1))
+    .then(normal(AssetHubParaId, List(solicit(777, FixedCodeLen))))
+  run code_apply_recovery_works = replayInit
+    .then(normal(AssetHubParaId, List(solicit(777, FixedCodeLen))))
+    .then(supplied(777, FixedCodeLen))
+    .then(normal(AssetHubParaId, List(code(Announcement))))
+    .then(recoverMessage(code(Apply), 0)).then(recoverMessage(code(Apply), 1))
+    .then(normal(AssetHubParaId, List(forget(2, FixedCodeLen), storeKV(81, 1))))
+
 }
