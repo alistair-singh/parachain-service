@@ -15,7 +15,7 @@ cargo test -p parachain-service-bin --test quint_replay
 ```
 
 The generator uses the pinned model, TypeScript backend, and seed 1. It regenerates
-`combined`, `refine_fuzz`, `refine_errors`, `blocks`, `upgrades`, `log_pruning`, `kv`, `balances`, `lifecycle`,
+`authorization`, `combined`, `refine_fuzz`, `refine_errors`, `blocks`, `upgrades`, `log_pruning`, `kv`, `balances`, `lifecycle`,
 `assignments`, `validator_keys`, `outgoing`, `service_upgrades`, `mixed`, `gas`,
 `storage`, `storage_recovery`, `code_recovery`, `host_mixed`, `services`, `service_preimages`, `service_management`, and `panic_recovery` scenarios,
 including the root minimal and stale-parent fixtures. Other historical fixtures
@@ -309,3 +309,8 @@ packages, bypassed authorization, incorrect report traces, and bypassed malforme
 trace validation. Multi-collator rotation/proof depth and authorization gas
 exhaustion remain outside this replay domain (separate Rust tests cover collator
 selection).
+
+`authorization_fuzz.qnt` uses the same pipeline with randomly paired faults and
+PVF outcomes. The opt-in generated test requires every fault, success/error/trap
+outcomes, and both mixed and rejected-only invocations; it is also available as
+`QUINT_FUZZ_PROFILE=authorization` for sustained campaigns.

@@ -11,7 +11,7 @@ use jam_types::{AccumulateItem, AuthTrace, WorkPackage};
 use parachain_authorizer::aura::{signable_work_package_hash, AuthConfig, AuthToken};
 use parachain_service_bin::{
 	authorizer_blob,
-	mock::{good_config_for, is_authorized_args, MOCK_SERVICE_ID},
+	mock::{is_authorized_args, MOCK_SERVICE_ID},
 };
 use serde_json::Value;
 
@@ -27,14 +27,8 @@ pub(super) fn authorize(
 	package: &mut WorkPackage,
 	fault: &str,
 ) -> Result<Option<AuthTrace>, String> {
-	let paras = Vec::decode_all(&mut &package.authorizer.config.0[..])
-		.or_else(|_| {
-			// Existing Refine configs also contain the AURA fields.
-			AuthConfig::decode_all(&mut &package.authorizer.config.0[..]).map(|c| c.para_ids)
-		})
+	let mut config = AuthConfig::decode_all(&mut &package.authorizer.config.0[..])
 		.map_err(|e| format!("authorization config: {e}"))?;
-	package.authorizer.config = good_config_for(paras);
-	let mut config = AuthConfig::decode_all(&mut &package.authorizer.config.0[..]).unwrap();
 	match fault {
 		"wrong_service" => config.parachain_service = MOCK_SERVICE_ID + 1,
 		"para_count" => config.para_ids.clear(),

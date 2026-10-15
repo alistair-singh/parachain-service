@@ -33,6 +33,7 @@ fn generator(seed: u64, stride: u64, count: u64, steps: u64) -> Command {
 fn generator_profile(profile: &str, seed: u64, stride: u64, count: u64, steps: u64) -> Command {
 	let input = match profile {
 		"fuzz" => "service/bin/tests/fixtures/quint/fuzz.qnt",
+		"authorization" => "service/bin/tests/fixtures/quint/authorization_fuzz.qnt",
 		"designation" => "service/bin/tests/fixtures/quint/designation_fuzz.qnt",
 		"self_payment" => "service/bin/tests/fixtures/quint/self_payment_fuzz.qnt",
 		"outgoing_boundary" => "service/bin/tests/fixtures/quint/outgoing_boundary_fuzz.qnt",
@@ -51,7 +52,9 @@ fn generator_profile(profile: &str, seed: u64, stride: u64, count: u64, steps: u
 		&count.to_string(),
 		&steps.to_string(),
 	]);
-	if profile == "outgoing_boundary" {
+	if profile == "authorization" {
+		command.arg("authorization_fuzz");
+	} else if profile == "outgoing_boundary" {
 		command.arg("outgoing_boundary_fuzz");
 	} else if profile == "self_payment" {
 		command.arg("self_payment_fuzz");
@@ -1087,4 +1090,69 @@ fn code_recovery_generated_works() {
 		assert!(retained_failures.contains(site), "missing checkpointed {site} rejection");
 	}
 	assert!(resumed, "missing successful invocation after recovery");
+}
+
+#[test]
+#[ignore = "executes real authorization, Refine and Accumulate; requires Node and Quint 0.32.0"]
+fn authorization_generated_works() {
+	let stream = generator_profile("authorization", 1, 1, 10, 20)
+		.output()
+		.expect("authorization generator");
+	assert!(stream.status.success(), "{}", String::from_utf8_lossy(&stream.stderr));
+	let mut faults = std::collections::BTreeSet::new();
+	let mut outcomes = std::collections::BTreeSet::new();
+	let mut rejected_only = false;
+	let mut mixed = false;
+	for line in String::from_utf8(stream.stdout).unwrap().lines() {
+		let envelope: Value = serde_json::from_str(line).unwrap();
+		assert_eq!(envelope["trace"]["replayAuthorizationRequired"], true);
+		assert_eq!(envelope["trace"]["replayRefineRequired"], true);
+		for state in envelope["trace"]["states"].as_array().unwrap().iter().skip(1) {
+			let inputs = state["replayAuthorizationInputs"].as_array().unwrap();
+			let admitted = inputs.iter().filter(|i| i["accepted"] == true).count();
+			rejected_only |= admitted == 0;
+			mixed |= admitted > 0 && admitted < inputs.len();
+			for input in inputs {
+				faults.insert(input["fault"].as_str().unwrap().to_owned());
+			}
+			for work in state["lastStepWorkResults"].as_array().unwrap() {
+				let result = &work["result"];
+				outcomes.insert(
+					if result["tag"] == "WorkErr" {
+						"WorkErr"
+					} else {
+						result["value"]["tag"].as_str().unwrap()
+					}
+					.to_owned(),
+				);
+			}
+		}
+		replay::document_trace(&envelope["trace"])
+			.unwrap_or_else(|error| panic!("seed {}: {error}", envelope["seed"]));
+	}
+	for fault in [
+		"valid",
+		"signature",
+		"proof",
+		"signed_context",
+		"wrong_service",
+		"para_count",
+		"zero_collators",
+		"zero_duration",
+		"config_empty",
+		"config_truncated",
+		"config_trailing",
+		"token_empty",
+		"token_truncated",
+		"token_trailing",
+		"trace_empty",
+		"trace_truncated",
+		"trace_trailing",
+	] {
+		assert!(faults.contains(fault), "missing authorization fault {fault}");
+	}
+	for outcome in ["Ok", "Err", "WorkErr"] {
+		assert!(outcomes.contains(outcome), "missing authorized outcome {outcome}");
+	}
+	assert!(rejected_only && mixed, "must cover rejected-only and mixed-admission invocations");
 }

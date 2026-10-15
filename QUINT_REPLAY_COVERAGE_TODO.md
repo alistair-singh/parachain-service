@@ -5,8 +5,8 @@ removed from this list; current coverage is documented in
 [the fixture guide](service/bin/tests/fixtures/quint/README.md).
 These are replay coverage limits; separate Rust tests cover some excluded cases.
 
-Prioritize the authorization pipeline, then Refine malformed-byte, executable,
-and gas coverage.
+Prioritize Refine malformed-byte and invalid-executable coverage, then gas
+exhaustion and the remaining Accumulate write-site audit.
 
 ## 1 Accumulate storage failures and recovery
 
@@ -14,12 +14,7 @@ and gas coverage.
   charge-record growth) and combine failures with gas recovery; never infer the
   oracle from Rust effects.
 
-## 2 Authorization pipeline
-
-- [ ] TODO: Execute IsAuthorized before Refine and Accumulate, including invalid
-  signatures and malformed configuration/token/trace bytes.
-
-## 3 Refine executable, byte, and package domains
+## 2 Refine executable, byte, and package domains
 
 - [ ] TODO: Cover malformed candidate payloads and invalid PVF binaries. Replay
   currently constructs valid candidate encodings and runs a scripted interpreter PVF.
@@ -29,19 +24,19 @@ and gas coverage.
   and identical code references, including invalid item counts and heterogeneous
   references. Resolve model-to-Rust error representation gaps explicitly.
 
-## 4 Refine historical lookup lifecycle
+## 3 Refine historical lookup lifecycle
 
 - [ ] TODO: Exercise actual historical availability across provision, forgetting,
   code upgrades, and lookup anchors instead of an isolated availability input.
 
-## 5 Accumulate upgrade migrations and transfer delivery
+## 4 Accumulate upgrade migrations and transfer delivery
 
 - [ ] TODO: Upgrade between different implementations/storage layouts; both
   replay upgrade blobs currently execute the same implementation.
 - [ ] TODO: Execute destination Accumulate after deferred delivery, including
   self-transfer queue entries, rather than only crediting destination balances.
 
-## 6 Successful supervision operations — requires host support
+## 5 Successful supervision operations — requires host support
 
 - [ ] TODO: Add mutable supervision to the host, then replay successful foreign
   preimage operations, storage removal, supervisor handoffs, and ejection.
@@ -49,7 +44,7 @@ and gas coverage.
   and incoming destination-balance selectors. Keep unsupported traces explicitly
   rejected until the host supports them.
 
-## 7 Generated domains and combined coverage
+## 6 Generated domains and combined coverage
 
 - [ ] TODO: Generate larger sustained batches and arbitrary byte distributions;
   keep dedicated exact-boundary fixtures and collision-free model mappings.
@@ -62,3 +57,5 @@ and gas coverage.
   instruction; preserve independent checkpoint expectations. Include due-flush
   exhaustion: current sampling removes its initial gas allowance, so recovery
   fixtures exercise later due flushes only in fully funded invocations.
+- [ ] TODO: Extend the authorization replay beyond its fixed single-collator
+  tree to collator rotation, deeper Merkle proofs, and authorization gas exhaustion.

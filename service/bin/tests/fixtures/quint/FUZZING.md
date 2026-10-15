@@ -20,7 +20,7 @@ Configuration:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `QUINT_FUZZ_PROFILE` | `fuzz` | `fuzz` for combined Refine → Accumulate inputs; `storage` for metadata/KV/queue failures; `storage_recovery` for those failures combined with checkpoint exhaustion; `code_storage` for code acquisition/announcement failures; `code_recovery` for those failures with checkpoint exhaustion; `outgoing_boundary` for exact spendable-balance limits; `self_payment` for deferred self-credit; `designation` for privilege changes |
+| `QUINT_FUZZ_PROFILE` | `fuzz` | `fuzz` for combined Refine → Accumulate inputs; `authorization` for real IsAuthorized → Refine → Accumulate admission and malformed-byte cases; `storage` for metadata/KV/queue failures; `storage_recovery` for those failures combined with checkpoint exhaustion; `code_storage` for code acquisition/announcement failures; `code_recovery` for those failures with checkpoint exhaustion; `outgoing_boundary` for exact spendable-balance limits; `self_payment` for deferred self-credit; `designation` for privilege changes |
 | `QUINT_FUZZ_TRACES` | `100` | Total traces across workers; `0` runs until failure/interruption |
 | `QUINT_FUZZ_STEPS` | `15` | Transitions per trace, 1–10000 |
 | `QUINT_FUZZ_WORKERS` | `1` | Independent Rust workers and generator processes |
@@ -504,3 +504,22 @@ funded retries, and later due flushes. Its opt-in test requires payload and inde
 rejections with retained JAM calls, plus a successful due flush. Interrupted
 invocations exclude already-due entries because gas sampling removes the initial
 flush allowance; due-flush invocations use full funding.
+
+## Authorization campaign
+
+`QUINT_FUZZ_PROFILE=authorization` selects `authorization_fuzz.qnt`. Each step
+samples two packages from the valid/signature/proof/signed-context/config/token/
+trace fault domain and a successful, logged-error, or trapped PVF script. The
+model filters authorization failures before invoking Accumulate; the Rust adapter
+executes the authorizer and passes only admitted packages through Refine. Original
+authorizer trace bytes accompany the actual Refine outputs into Accumulate.
+
+The opt-in `authorization_generated_works` test runs 10 seeds × 20 steps and
+requires all 17 fault choices, all three Refine outcome classes, rejected-only
+invocations, and mixed accepted/rejected invocations. Stream metadata requires
+both authorization inputs and Refine execution, including when replaying saved
+failures. The standard full workspace command includes this generated test.
+
+See [the fixture guide](README.md#authorization-pipeline) for the symbolic exact
+trace mapping and single-collator/gas limits. Malformed traces are explicit
+post-authorization boundary injections, never claimed as real authorizer output.
