@@ -35,16 +35,20 @@ module fuzz {
   }
 
   action recoverPackages(budget: int, stop: int, packages: List[WorkResult],
-    incoming: List[IncomingTransfer], designated: List[ValidatorKey]): bool = {
+    incoming: List[IncomingTransfer], designated: List[ValidatorKey]): bool =
+    recoverAt(budget, stop, packages, incoming, designated, now + 1)
+
+  action recoverAt(budget: int, stop: int, packages: List[WorkResult],
+    incoming: List[IncomingTransfer], designated: List[ValidatorKey], slot: int): bool = {
     val start: Host = { state: svc, free: budget, logs: replayStorageLogs,
-      sizes: replayStorageSizes, failed: List(), failedMessages: List(), assignmentFailure: "" }
+      sizes: replayStorageSizes, failed: List(), failedMessages: List(), assignmentFailure: "", assigns: List() }
     val arrived = if (stop == -2) { ...start, free: budget + incoming.foldl(0, (n, t) => n + t.amount) }
-      else arrivals(start, incoming, now + 1)
+      else arrivals(if (stop == -1) dueAssignments(start, slot) else start, incoming, slot)
     val end = if (stop == -2) 0 else if (stop == -1) packages.length() else stop
-    val out = range(0, end).foldl(arrived, (a, i) => report(a, packages[i], i, now + 1))
+    val out = range(0, end).foldl(arrived, (a, i) => report(a, packages[i], i, slot))
     all {
-      svc' = out.state, prevSvc' = svc, now' = now + 1,
-      lastStepWorkResults' = packages, lastStepAssigns' = List(), lastStepAssignBudget' = FullAssignBudget,
+      svc' = out.state, prevSvc' = svc, now' = slot,
+      lastStepWorkResults' = packages, lastStepAssigns' = out.assigns, lastStepAssignBudget' = FullAssignBudget,
       lastHeadRoot' = if (stop == -1) headCommitment(svc, out.state) else None,
       solicitedSet' = solicitedSet,
       jamStagingSet' = if (end > 0 and designated != List()) designated else jamStagingSet,
@@ -81,6 +85,39 @@ module fuzz {
       AssignCore({ core: core, queue: range(0, count).foldl(List(),
         (a, i) => a.append({ authBytes: now + i + 10 })),
         newAssigner: None, jamSlot: 1000000 + now })))), List(), List())
+  action inlineRecovery(budget: int, core: int, count: int, stop: int): bool =
+    recoverPackages(budget, stop, List(metadataWork(CoretimeParaId, List(
+      AssignCore({ core: core, queue: range(0, count).foldl(List(),
+        (a, i) => a.append({ authBytes: now + i + 10 })),
+        newAssigner: None, jamSlot: now })))), List(), List())
+  action flushRecovery(stop: int): bool =
+    recoverAt(0, stop, List(metadataWork(CoretimeParaId, List())), List(), List(), now + 1000001)
+
+  // Three hashes do not tile the 80-slot queue: payload 145, initial index 52.
+  run inline_assignment_recovery_works = replayInit
+    .then(inlineRecovery(52, 0, 3, -2))
+    .then(inlineRecovery(52, 0, 3, 0))
+    .then(inlineRecovery(52, 0, 3, 1))
+    .then(inlineRecovery(196, 0, 3, 1))
+    .then(inlineRecovery(197, 0, 3, 0))
+    .then(inlineRecovery(197, 0, 3, 1))
+    .then(inlineRecovery(127, 0, 7, 1))
+    .then(inlineRecovery(128, 0, 7, 1))
+    .then(flushRecovery(-1))
+    .then(inlineRecovery(0, 0, 1, 1))
+    .then(inlineRecovery(0, 1, 1, -1))
+
+  run assignment_rejected_then_due_works = replayInit
+    .then(assignmentRecovery(133, 0, 1, 1))
+    .then(inlineRecovery(63, 0, 3, 1))
+    .then(assignmentRecovery(63, 0, 3, 1))
+    .then(flushRecovery(-1))
+
+  run inline_uncached_tiling_works = replayInit
+    .then(inlineRecovery(0, 0, 1, 0))
+    .then(inlineRecovery(0, 0, 1, 1))
+    .then(inlineRecovery(0, 0, 2, -1))
+
   action assignmentStep = {
     nondet budget = Set(0, 6, 52, 80, 81, 86, 87, 132, 133, 31, 32, 1000).oneOf()
     nondet core = Set(0, 1, 2).oneOf()

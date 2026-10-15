@@ -45,6 +45,16 @@ pub fn schedule(
 		}
 		return;
 	}
+	cache(core, queue, new_assigner, jam_slot);
+}
+
+/// Keep the payload and due time together when either storage write is rejected.
+fn cache(
+	core: CoreIndex,
+	queue: Vec<AuthorizerHash>,
+	new_assigner: Option<ServiceId>,
+	jam_slot: Timeslot,
+) {
 	let previous = PendingAssigns::get(core);
 	if PendingAssigns::set(core, &PendingAssign { queue, assigner: new_assigner }).is_err() {
 		// Keep the prior payload and due time together. Arming the index after
@@ -142,8 +152,7 @@ fn settle_after_assign(
 		PendingAssigns::remove(core);
 		DirtyCores::remove(core);
 	} else {
-		let _ = PendingAssigns::set(core, &PendingAssign { queue: advance_queue(queue), assigner });
-		let _ = DirtyCores::upsert(core, now + auth_queue_len() as Timeslot);
+		cache(core, advance_queue(queue), assigner, now + auth_queue_len() as Timeslot);
 	}
 }
 
