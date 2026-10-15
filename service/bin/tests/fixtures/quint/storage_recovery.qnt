@@ -13,8 +13,9 @@ module fuzz {
 
   var replayGasLimits: List[int]
   var replayInterrupt: int
+  var replayAssignmentFailure: str
   action replayInit = all { storageInit, replayGasLimits' = List(),
-    replayInterrupt' = -1 }
+    replayInterrupt' = -1, replayAssignmentFailure' = "" }
 
   action recover(budget: int, mode: int, stop: int, count: int, amount: int): bool = {
     val parent = svc.paraInfo(AssetHubParaId).headData
@@ -36,7 +37,7 @@ module fuzz {
   action recoverPackages(budget: int, stop: int, packages: List[WorkResult],
     incoming: List[IncomingTransfer], designated: List[ValidatorKey]): bool = {
     val start: Host = { state: svc, free: budget, logs: replayStorageLogs,
-      sizes: replayStorageSizes, failed: List(), failedMessages: List() }
+      sizes: replayStorageSizes, failed: List(), failedMessages: List(), assignmentFailure: "" }
     val arrived = if (stop == -2) { ...start, free: budget + incoming.foldl(0, (n, t) => n + t.amount) }
       else arrivals(start, incoming, now + 1)
     val end = if (stop == -2) 0 else if (stop == -1) packages.length() else stop
@@ -51,6 +52,7 @@ module fuzz {
       replayIncoming' = incoming, replayStorageBudget' = budget,
       replayStorageFree' = out.free, replayStorageLogs' = out.logs,
       replayStorageSizes' = out.sizes, replayFailedHeads' = out.failed,
+      replayAssignmentFailure' = out.assignmentFailure,
       replayFailedMessages' = out.failedMessages,
       replayDesignate' = if (end > 0) designated else List(),
       replayGasLimits' = packages.foldl(List(), (a, _) => a.append(18446744073709551615)),
@@ -70,6 +72,32 @@ module fuzz {
       not(final) or ValCount.contains(designated.length()),
       recoverPackages(budget, stop, List(metadataWork(AssetHubParaId, List(
         SetValidatorKeys({ keys: chunk, isLast: final })))), List(), designated)
+    }
+  }
+  // Keep due times beyond this bounded campaign: these cases isolate the two
+  // scheduling writes, without an unrelated due flush before the checkpoint.
+  action assignmentRecovery(budget: int, core: int, count: int, stop: int): bool =
+    recoverPackages(budget, stop, List(metadataWork(CoretimeParaId, List(
+      AssignCore({ core: core, queue: range(0, count).foldl(List(),
+        (a, i) => a.append({ authBytes: now + i + 10 })),
+        newAssigner: None, jamSlot: 1000000 + now })))), List(), List())
+  action assignmentStep = {
+    nondet budget = Set(0, 6, 52, 80, 81, 86, 87, 132, 133, 31, 32, 1000).oneOf()
+    nondet core = Set(0, 1, 2).oneOf()
+    nondet count = Set(1, 2, 3).oneOf()
+    nondet stop = Set(-2, -1, 0, 1).oneOf()
+    assignmentRecovery(budget, core, count, stop)
+  }
+  // Keep index rejection reachable after the small random core set fills up.
+  // Fund a new payload but leave the index exactly one byte short.
+  action assignmentIndexStep = {
+    val core = (now + 3) % CoreCount
+    val count = svc.pendingAssignCores.keys().size() + 1
+    val oldIndex = if (replayStorageSizes.keys().contains(3)) replayStorageSizes.get(3) else 0
+    all {
+      not(svc.pendingAssigns.keys().contains(core)),
+      assignmentRecovery(81 + cost(1, compact(count) + 6 * count) - oldIndex - 1,
+        core, 1, 1)
     }
   }
   action balanceStep = {
@@ -100,7 +128,30 @@ module fuzz {
   // credits accidentally funding it. First retain a shrink, then reject growth.
   action headGrowthStep = recover(0, 0,
     if (svc.paraInfo(AssetHubParaId).headData == 0) 2 else 1, 0, 0)
-  action replayStep = any { randomStep, headGrowthStep, balanceStep, validatorStep }
+  action replayStep = any { randomStep, headGrowthStep, balanceStep, validatorStep, assignmentStep, assignmentIndexStep }
+  // One-hash payload costs 81; creating the first dirty index costs 52.
+  // Funding only the index must not arm it when the payload cannot be stored.
+  run assignment_payload_recovery_works = replayInit
+    .then(assignmentRecovery(52, 0, 1, -2))
+    .then(assignmentRecovery(52, 0, 1, 0))
+    .then(assignmentRecovery(52, 0, 1, 1))
+    .then(assignmentRecovery(80, 0, 1, -1))
+    .then(assignmentRecovery(133, 0, 1, 0))
+    .then(assignmentRecovery(133, 0, 1, 1))
+    .then(assignmentRecovery(31, 0, 2, 1))
+    .then(assignmentRecovery(32, 0, 2, 0))
+    .then(assignmentRecovery(32, 0, 2, 1))
+    .then(assignmentRecovery(0, 0, 1, 0))
+    .then(assignmentRecovery(0, 0, 1, 1))
+    .then(assignmentRecovery(32, 0, 2, -1))
+  run assignment_index_recovery_works = replayInit
+    .then(assignmentRecovery(132, 0, 1, -2))
+    .then(assignmentRecovery(132, 0, 1, 0))
+    .then(assignmentRecovery(132, 0, 1, 1))
+    .then(assignmentRecovery(133, 0, 1, 0))
+    .then(assignmentRecovery(133, 0, 1, 1))
+    .then(assignmentRecovery(86, 1, 1, 1))
+    .then(assignmentRecovery(87, 1, 1, -1))
   run queue_recovery_works = replayInit
     .then(recover(188, 0, -2, 1, 1))
     .then(recover(188, 0, 0, 1, 0))

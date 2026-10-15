@@ -2,7 +2,7 @@
 use super::itf::replay;
 use serde_json::{json, Value};
 
-const FIXTURES: [&str; 9] = [
+const FIXTURES: [&str; 11] = [
 	include_str!("../fixtures/quint/storage_recovery/queue_recovery_works.itf.json"),
 	include_str!("../fixtures/quint/storage_recovery/metadata_recovery_works.itf.json"),
 	include_str!("../fixtures/quint/storage_recovery/staging_recovery_works.itf.json"),
@@ -14,6 +14,8 @@ const FIXTURES: [&str; 9] = [
 	include_str!(
 		"../fixtures/quint/storage_recovery/validator_finalization_recovery_works.itf.json"
 	),
+	include_str!("../fixtures/quint/storage_recovery/assignment_payload_recovery_works.itf.json"),
+	include_str!("../fixtures/quint/storage_recovery/assignment_index_recovery_works.itf.json"),
 ];
 
 #[test]
@@ -59,5 +61,20 @@ fn lost_finalization_checkpoint_errors() {
 		let mut trace = original.clone();
 		trace["states"][5][field] = trace["states"][4][field].clone();
 		assert!(replay::document_trace(&trace).is_err(), "{field}");
+	}
+}
+
+#[test]
+fn lost_assignment_checkpoint_errors() {
+	for (fixture, frame, field) in [
+		(9, 6, "pendingAssigns"),
+		(9, 6, "pendingAssignCores"),
+		(10, 5, "pendingAssigns"),
+		(10, 5, "pendingAssignCores"),
+	] {
+		let mut trace: Value = serde_json::from_str(FIXTURES[fixture]).unwrap();
+		assert_ne!(trace["states"][frame]["svc"][field], trace["states"][frame - 1]["svc"][field]);
+		trace["states"][frame]["svc"][field] = trace["states"][frame - 1]["svc"][field].clone();
+		assert!(replay::document_trace(&trace).is_err(), "{fixture}/{field}");
 	}
 }

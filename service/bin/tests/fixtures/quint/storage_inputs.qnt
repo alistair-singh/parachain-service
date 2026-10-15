@@ -24,7 +24,7 @@ module storage_inputs {
   var replayFailedHeads: List[int]
   var replayFailedMessages: List[(int, int)]
   type Host = { state: ParachainServiceState, free: int, logs: StorageLog,
-    sizes: int -> int, failed: List[int], failedMessages: List[(int, int)] }
+    sizes: int -> int, failed: List[int], failedMessages: List[(int, int)], assignmentFailure: str }
 
   // SCALE lengths and JAM deposit parameters, independently of Rust encoders.
   pure def compact(n: int): int = if (n < 64) 1 else if (n < 16384) 2 else 4
@@ -64,6 +64,27 @@ module storage_inputs {
         credited
       else { ...write(written.host, 1, cost(1, 20)), state: admitted }
     }
+  }
+
+  // Future assignments write their payload before arming the dirty index.
+  // Rejecting either write must restore both entries and their original deposit.
+  pure def schedule(h: Host, core: int, queue: List[AuthorizerHash],
+    assigner: Option[ServiceId], due: int, reportIndex: int, messageIndex: int): Host = {
+    val cached = { ...h.state, pendingAssigns: h.state.pendingAssigns.put(core,
+      { queue: queue, assigner: assigner }) }
+    val cacheDelta = hostCost(cached) - hostCost(h.state)
+    val armed = { ...cached, pendingAssignCores: cached.pendingAssignCores.put(core, due) }
+    val indexCost = cost(1, compact(armed.pendingAssignCores.keys().size())
+      + 6 * armed.pendingAssignCores.keys().size())
+    val indexDelta = indexCost - oldCost(h, 3)
+    if (cacheDelta > h.free)
+      { ...h, failedMessages: h.failedMessages.append((reportIndex, messageIndex)),
+        assignmentFailure: "payload" }
+    else if (cacheDelta + indexDelta > h.free)
+      { ...h, failedMessages: h.failedMessages.append((reportIndex, messageIndex)),
+        assignmentFailure: "index" }
+    else { ...h, state: armed, free: h.free - cacheDelta - indexDelta,
+      sizes: h.sizes.put(3, indexCost) }
   }
 
   // Model operations supply the proposed state. The independent host footprint
@@ -131,6 +152,8 @@ module storage_inputs {
                   { ...a, errors: a.errors.append(KVWrite(kv.key[0])) }
                 else { ...a, host: { ...write(a.host, key, footprint), state: applied.state } }
               }
+              | AssignCore(p) => { ...a, host: schedule(a.host, p.core, p.queue,
+                  p.newAssigner, p.jamSlot, index, m) }
               | _ => { ...a, host: metadata(a.host, ok.upwardMessages[m], index, m, slot) }
             })
           appendLog(done.host, slot, done.errors)
@@ -160,7 +183,7 @@ module storage_inputs {
 
   action storageInvocation(budget: int, packages: List[WorkResult], incoming: List[IncomingTransfer]): bool = {
     val start: Host = { state: svc, free: budget, logs: replayStorageLogs,
-      sizes: replayStorageSizes, failed: List(), failedMessages: List() }
+      sizes: replayStorageSizes, failed: List(), failedMessages: List(), assignmentFailure: "" }
     val arrived = arrivals(start, incoming, now + 1)
     val out = range(0, packages.length()).foldl(arrived,
       (a, i) => report(a, packages[i], i, now + 1))
