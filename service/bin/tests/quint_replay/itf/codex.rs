@@ -182,6 +182,10 @@ impl Codex {
 	}
 
 	pub fn auth_trace(len: i128) -> Result<AuthTrace, String> {
+		// Reserved symbolic identity for the authorization profile, not a byte length.
+		if len == -1 {
+			return Ok(super::authorization::expected_trace());
+		}
 		let len =
 			usize::try_from(len).map_err(|_| format!("auth trace length out of range: {len}"))?;
 		if len > MAX_REFINE_OUTPUT_SIZE {
@@ -193,6 +197,9 @@ impl Codex {
 	}
 
 	pub fn auth_trace_int(value: &AuthTrace) -> Result<i128, String> {
+		if *value == super::authorization::expected_trace() {
+			return Ok(-1);
+		}
 		if value.0.iter().any(|byte| *byte != 0xaa) {
 			return Err("auth trace is not a codex value".into());
 		}

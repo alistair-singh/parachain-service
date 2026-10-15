@@ -56,6 +56,9 @@ pub fn work_items(
 	results: &[Value],
 	codex: &mut Codex,
 ) -> Result<Vec<AccumulateItem>, String> {
+	if current.get("replayAuthorizationInputs").is_some() {
+		return super::authorization::work_items(storage, current, results, codex);
+	}
 	let inputs = current.get("replayRefineInputs");
 	let Some(inputs) = inputs else {
 		return results.iter().map(|r| super::replay::work_item(r, codex)).collect();
@@ -92,6 +95,7 @@ pub fn work_items(
 }
 
 pub fn validate(document: &Value, states: &[Value]) -> Result<(), String> {
+	super::authorization::validate(document, states)?;
 	let enabled = states.first().is_some_and(|s| s.get("replayRefineInputs").is_some());
 	for state in states {
 		if state.get("replayRefineInputs").is_some() != enabled {
@@ -157,6 +161,15 @@ fn execute(
 	codex: &mut Codex,
 	service: &[u8],
 ) -> Result<Option<ParachainWorkDigest>, String> {
+	execute_authorized(input, codex, service, None).map(|(digest, _)| digest)
+}
+
+pub(super) fn execute_authorized(
+	input: &Value,
+	codex: &mut Codex,
+	service: &[u8],
+	fault: Option<&str>,
+) -> Result<(Option<ParachainWorkDigest>, Option<jam_types::AuthTrace>), String> {
 	let pkg = field(input, "pkg")?;
 	let paras = field(pkg, "authorizedParas")?.as_array().ok_or("expected para list")?;
 	let paras = paras
@@ -230,12 +243,30 @@ fn execute(
 	let mut package: jam_types::WorkPackage = jam_codec::Decode::decode(&mut &encoded[..])
 		.map_err(|e| format!("package decode: {e:?}"))?;
 	package.context.lookup_anchor_slot = bounded_integer(field(input, "anchor")?, "anchor")?;
+	let auth = if let Some(fault) = fault {
+		let Some(trace) = super::authorization::authorize(&mut package, fault)? else {
+			return Ok((None, None));
+		};
+		context.auth_output = trace.clone();
+		if fault == "trace_empty" {
+			context.auth_output.0.clear();
+		}
+		if fault == "trace_trailing" {
+			context.auth_output.0.push(0);
+		}
+		if fault == "trace_truncated" {
+			context.auth_output.0.pop();
+		}
+		Some(trace)
+	} else {
+		None
+	};
 	context.work_package = package.into();
 	let (actual, _, _) = engine.refine(service_hash, RefineCallContext::from(&mut context));
 	match actual {
 		// The hazmat API does not expose the error enum. Compare its exact
 		// variant, as the accumulate recovery adapter does; gas errors fail.
-		Err(error) if format!("{error:?}") == "Trap" => Ok(None),
+		Err(error) if format!("{error:?}") == "Trap" => Ok((None, auth)),
 		Err(error) => Err(format!("unexpected refine VM failure: {error:?}")),
 		Ok(output) => {
 			let mut actual = ParachainWorkDigest::decode_all(&mut &output[..])
@@ -248,7 +279,7 @@ fn execute(
 				return Err("Rust digest names the wrong executable code".into());
 			}
 			*validation_code = abstract_code;
-			Ok(Some(actual))
+			Ok((Some(actual), auth))
 		},
 	}
 }

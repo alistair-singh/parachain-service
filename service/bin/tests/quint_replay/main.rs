@@ -55,3 +55,5 @@ mod combined;
 mod storage_recovery;
 
 mod host_calls;
+
+mod authorization;

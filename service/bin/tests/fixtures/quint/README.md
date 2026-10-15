@@ -283,3 +283,29 @@ Mutation tests alter history without changing the expected final state.
 New generated traces set `replayHostCallsRequired`; missing history then fails
 rather than silently falling back to final-effect-only replay. Legacy saved
 traces without that marker or history remain supported.
+
+## Authorization pipeline
+
+`authorization.qnt` executes the real ed25519 authorizer before Refine and
+Accumulate. Its independent admission oracle covers a valid signature, corrupt
+signature/key proof, changed signed context, wrong target service, mismatched
+para count, zero collator count/slot duration, and empty/truncated/trailing
+configuration and token encodings. Rejected packages produce no work report.
+Accepted packages pass their actual author trace and actual Refine output to
+Accumulate, including logged PVF errors, PVF traps, and later successful work.
+
+Empty/truncated/trailing traces are injected **after** successful authorization
+at the Refine boundary; they are not possible outputs of this authorizer. Refine
+must trap, producing a WorkErr that leaves the parachain state unchanged. The
+report still carries the original IsAuthorized trace.
+
+The profile uses one fixed collator and a single-leaf Merkle tree. It signs the
+final package, including the lookup anchor. The symbolic auth-trace value `-1`
+uniquely maps to that collator's exact 32-byte public key; nonnegative values keep
+the existing repeated-byte length mapping. This profile does not apply the
+length-based storage-failure oracle to that symbolic value. It checks exact
+stored trace bytes, not just their length. Mutations test admission, missing
+packages, bypassed authorization, incorrect report traces, and bypassed malformed
+trace validation. Multi-collator rotation/proof depth and authorization gas
+exhaustion remain outside this replay domain (separate Rust tests cover collator
+selection).
