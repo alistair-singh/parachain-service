@@ -9,9 +9,9 @@ Prioritize the remaining Accumulate write-site audit.
 
 ## 1 Accumulate storage failures and recovery
 
-- [ ] TODO: Extend KV charge-record boundary coverage to generated campaigns and
-  additional compact widths; the fixed insertion/overwrite fixtures now cover
-  charge rejection, KV rollback, retry, shrink/refund, and gas recovery at 2^30.
+- [ ] TODO: Extend KV charge-record boundaries above 2^32 and combine generated
+  crossings with instruction gas recovery; generated insertion/overwrite cases
+  cover 2^30 and 2^32, while fixed gas recovery covers 2^30.
 - [ ] TODO: Combine cleanup/refund and code-apply write sequences with instruction
   gas recovery. Their storage writes shrink or retain their footprints, so host
   deposit rejection is not the missing case; preserve independent checkpoint

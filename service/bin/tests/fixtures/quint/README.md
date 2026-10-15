@@ -343,6 +343,16 @@ Budget mutation tests require the rejected and committed states to disagree.
 These fixed cases inject work results directly and do not cover every compact
 width or every instruction cutoff.
 
+`kv_charge_fuzz.qnt` adds a streaming `QUINT_FUZZ_PROFILE=kv_charge` campaign.
+Its required regression runs 100 seeds through insertion/overwrite crossings at
+2^30 and 2^32, with value growth of 1, 2, or 64 bytes. Every trace checks zero,
+charge-only, and one-unit-short budgets, exact-fit success, zero-budget
+shrink/removal refunds, and a second exact-fit retry. Coverage assertions require
+all twelve width/mode/growth combinations and the expected rejection counts;
+Rust state and host free balance are compared against the independent Quint
+oracle. These cases still inject work results and do not add gas cutoffs or
+cover compact widths above 2^32.
+
 The remaining upward-message write audit distinguishes growing writes from
 shrinking ones: code application clears announcement metadata; KV removal,
 reference release, and cleanup delete entries or refund balances. These paths

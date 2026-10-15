@@ -38,6 +38,7 @@ fn generator_profile(profile: &str, seed: u64, stride: u64, count: u64, steps: u
 		"self_payment" => "service/bin/tests/fixtures/quint/self_payment_fuzz.qnt",
 		"outgoing_boundary" => "service/bin/tests/fixtures/quint/outgoing_boundary_fuzz.qnt",
 		"storage" => "service/bin/tests/fixtures/quint/storage_fuzz.qnt",
+		"kv_charge" => "service/bin/tests/fixtures/quint/kv_charge_fuzz.qnt",
 		"storage_recovery" => "service/bin/tests/fixtures/quint/storage_recovery.qnt",
 		"code_recovery" => "service/bin/tests/fixtures/quint/code_recovery.qnt",
 		"code_storage" => "service/bin/tests/fixtures/quint/code_storage_fuzz.qnt",
@@ -52,7 +53,9 @@ fn generator_profile(profile: &str, seed: u64, stride: u64, count: u64, steps: u
 		&count.to_string(),
 		&steps.to_string(),
 	]);
-	if profile == "authorization" {
+	if profile == "kv_charge" {
+		command.arg("kv_charge_fuzz");
+	} else if profile == "authorization" {
 		command.arg("authorization_fuzz");
 	} else if profile == "outgoing_boundary" {
 		command.arg("outgoing_boundary_fuzz");
@@ -1188,4 +1191,47 @@ fn authorization_generated_works() {
 		assert!(outcomes.contains(outcome), "missing authorized outcome {outcome}");
 	}
 	assert!(rejected_only && mixed, "must cover rejected-only and mixed-admission invocations");
+}
+
+#[test]
+#[ignore = "checks generated KV charge boundaries; requires Node and Quint 0.32.0"]
+fn kv_charge_generated_works() {
+	let output = generator_profile("kv_charge", 1, 1, 100, 10).output().unwrap();
+	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+	let mut cases = std::collections::BTreeSet::new();
+	for line in String::from_utf8(output.stdout).unwrap().lines() {
+		let envelope: Value = serde_json::from_str(line).unwrap();
+		let states = envelope["trace"]["states"].as_array().unwrap();
+		assert_eq!(states.len(), 11);
+		let integer = |state: &Value, field: &str| {
+			state[field]["#bigint"].as_str().unwrap().parse::<u64>().unwrap()
+		};
+		cases.insert((
+			integer(&states[0], "chargeWidth"),
+			integer(&states[0], "chargeOldLen"),
+			integer(&states[0], "chargeGrowth"),
+		));
+		// All three underfunded writes must reject; both exact-fit attempts
+		// and both zero-budget shrink/removal operations must succeed.
+		for frame in 4..=10 {
+			assert_eq!(
+				integer(&states[frame], "replayHostRejects"),
+				if frame <= 6 { 1 } else { 0 },
+				"seed {} frame {frame}",
+				envelope["seed"]
+			);
+		}
+		replay::document_trace(&envelope["trace"])
+			.unwrap_or_else(|error| panic!("seed {}: {error}", envelope["seed"]));
+	}
+	for width in [1 << 30, 1 << 32] {
+		for old_len in [0, 1] {
+			for growth in [1, 2, 64] {
+				assert!(
+					cases.contains(&(width, old_len, growth)),
+					"missing boundary case {width}/{old_len}/{growth}"
+				);
+			}
+		}
+	}
 }
