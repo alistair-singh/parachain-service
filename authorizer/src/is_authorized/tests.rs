@@ -1,12 +1,9 @@
 //! Keystore signing and guest verification for both schemes, including wrong-scheme rejection.
 //! sr25519 signatures must use the keystore's `substrate` transcript context.
 
-use crate::{
-	aura::{
-		build_collator_proofs, signable_work_package_hash, AuthConfig, AuthToken, CollatorKey,
-		CollatorSignature,
-	},
-	is_authorized::{authorize, AuthorizationError},
+use crate::aura::{
+	authorize, build_collator_proofs, signable_work_package_hash, AuthConfig, AuthToken,
+	AuthorizationError, CollatorKey, CollatorSignature, ConfigError, TokenError,
 };
 use codec::{DecodeAll as _, Encode};
 use jam_types::{
@@ -338,13 +335,13 @@ fn a_parked_core_admits_no_ordinary_package_works() {
 		let token = &collators.tokens(&package)[0];
 		assert!(matches!(
 			authorize_under(scheme, &parked, token, &package),
-			Err(AuthorizationError::InvalidWorkItemCount)
+			Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemCount))
 		));
 		// Nor does putting an assignment in it help without the privilege to run one.
 		let control = controlling(1, 0);
 		assert!(matches!(
 			authorize_under(scheme, &parked, &collators.tokens(&control)[0], &control),
-			Err(AuthorizationError::InvalidWorkItemCount)
+			Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemCount))
 		));
 	}
 }
@@ -358,26 +355,24 @@ fn unsigned_sentinel_errors() {
 		let forged = AuthToken { proof: Vec::new(), key: [0xff; 32], signature: [0; 64] };
 		assert!(matches!(
 			authorize_under(scheme, &collators.config(Vec::new()), &forged, &package),
-			Err(AuthorizationError::InvalidWorkItemCount)
+			Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemCount))
 		));
 		assert!(matches!(
 			authorize_under(scheme, &collators.config(vec![ParaId::new(0)]), &forged, &package),
-			Err(AuthorizationError::BadAuthorization(_))
+			Err(AuthorizationError::BadToken(_))
 		));
 		// Even membership cannot turn the former sentinel into an unsigned authorization.
 		let mut config = collators.config(vec![ParaId::new(0)]);
 		config.collator_set_root = build_collator_proofs(&[forged.key]).unwrap().0;
 		assert!(matches!(
 			authorize_under(scheme, &config, &forged, &package),
-			Err(AuthorizationError::BadAuthorization(crate::aura::AuthorizationError::BadToken(
-				crate::aura::TokenError::BadCollatorSignature
-			)))
+			Err(AuthorizationError::BadToken(TokenError::BadCollatorSignature))
 		));
 		let mut foreign = package;
 		foreign.items[0].service = PARACHAIN_SERVICE_ID + 1;
 		assert!(matches!(
 			authorize_under(scheme, &collators.config(vec![ParaId::new(0)]), &forged, &foreign),
-			Err(AuthorizationError::InvalidWorkItemService)
+			Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemService))
 		));
 	}
 }
@@ -397,7 +392,7 @@ fn an_assigned_core_still_counts_items_works() {
 				token,
 				&package
 			),
-			Err(AuthorizationError::InvalidWorkItemCount)
+			Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemCount))
 		));
 	}
 }

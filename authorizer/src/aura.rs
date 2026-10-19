@@ -2,7 +2,7 @@
 
 pub use cumulus_aura_authorizer::{
 	build_collator_proofs, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
-	AuthorizationError, CollatorKey, CollatorProofError, CollatorSignature, ParaId,
+	AuthorizationError, CollatorKey, CollatorProofError, CollatorSignature, ConfigError, ParaId,
 	SignatureVerifier, TokenError, WORK_PACKAGE_SIGN_CTX,
 };
 
@@ -27,6 +27,13 @@ pub(crate) fn authorize<S: SignatureVerifier>(
 	package: &jam_types::WorkPackage,
 	slot: jam_types::Slot,
 ) -> Result<AuthTrace, AuthorizationError> {
+	// TODO: Use AuthConfig::check_work_items once both crates use the same JAM types.
+	if package.items.len() != config.para_ids.len() {
+		return Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemCount));
+	}
+	if package.items.iter().any(|item| item.service != config.parachain_service) {
+		return Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemService));
+	}
 	let collator_index = config.expected_collator_index(slot);
 	token
 		.check_proof(config, collator_index)

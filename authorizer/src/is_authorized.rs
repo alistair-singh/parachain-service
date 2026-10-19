@@ -1,17 +1,12 @@
 use super::aura::{self, AuthConfig, AuthToken, SignatureVerifier};
 use codec::{DecodeAll, Encode};
 use jam_pvm_common::is_authorized::{auth_token, refine_context, work_package};
-use jam_types::{AuthTrace, CoreIndex, Slot, WorkPackage};
-use parachain_service_core::authorization::AuthTrace as AuraAuthTrace;
+use jam_types::{AuthTrace, CoreIndex};
 
 #[derive(Debug)]
 pub(crate) enum AuthorizationError {
 	UndecodableAuthConfig,
 	UndecodableAuthToken,
-	/// Number of work items does not match the number of para IDs.
-	InvalidWorkItemCount,
-	/// A work item does not target the Parachain Service.
-	InvalidWorkItemService,
 	BadAuthorization(aura::AuthorizationError),
 }
 
@@ -32,25 +27,9 @@ pub(crate) fn is_authorized<S: SignatureVerifier>(
 	// §7.1 selects the collator using the recent anchor's timeslot.
 	let slot = refine_context().anchor_slot;
 
-	Ok(AuthTrace(authorize::<S>(&config, &token, &package, slot)?.encode()))
-}
-
-/// Validate a package without host calls, using the supplied config, token, and slot.
-fn authorize<S: SignatureVerifier>(
-	config: &AuthConfig,
-	token: &AuthToken,
-	package: &WorkPackage,
-	anchor_slot: Slot,
-) -> Result<AuraAuthTrace, AuthorizationError> {
-	if package.items.iter().any(|item| item.service != config.parachain_service) {
-		return Err(AuthorizationError::InvalidWorkItemService);
-	}
-
-	if config.para_ids.len() != package.items.len() {
-		return Err(AuthorizationError::InvalidWorkItemCount);
-	}
-	aura::authorize::<S>(config, token, package, anchor_slot)
-		.map_err(AuthorizationError::BadAuthorization)
+	let trace = aura::authorize::<S>(&config, &token, &package, slot)
+		.map_err(AuthorizationError::BadAuthorization)?;
+	Ok(AuthTrace(trace.encode()))
 }
 
 #[cfg(test)]
