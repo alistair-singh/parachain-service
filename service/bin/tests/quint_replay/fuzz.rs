@@ -1198,13 +1198,13 @@ fn authorization_generated_works() {
 #[test]
 #[ignore = "checks generated KV charge boundaries; requires Node and Quint 0.32.0"]
 fn kv_charge_generated_works() {
-	let output = generator_profile("kv_charge", 1, 1, 100, 10).output().unwrap();
+	let output = generator_profile("kv_charge", 1, 1, 100, 11).output().unwrap();
 	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 	let mut cases = std::collections::BTreeSet::new();
 	for line in String::from_utf8(output.stdout).unwrap().lines() {
-		let envelope: Value = serde_json::from_str(line).unwrap();
+		let mut envelope: Value = serde_json::from_str(line).unwrap();
 		let states = envelope["trace"]["states"].as_array().unwrap();
-		assert_eq!(states.len(), 11);
+		assert_eq!(states.len(), 12);
 		let integer = |state: &Value, field: &str| {
 			state[field]["#bigint"].as_str().unwrap().parse::<u64>().unwrap()
 		};
@@ -1213,9 +1213,27 @@ fn kv_charge_generated_works() {
 			integer(&states[0], "chargeOldLen"),
 			integer(&states[0], "chargeGrowth"),
 		));
-		// All three underfunded writes must reject; both exact-fit attempts
-		// and both zero-budget shrink/removal operations must succeed.
-		for frame in 4..=10 {
+		let used = |frame: usize| {
+			let info = states[frame]["svc"]["parachains"]["#map"]
+				.as_array()
+				.unwrap()
+				.iter()
+				.find(|entry| entry[0]["value"]["#bigint"] == "2")
+				.unwrap();
+			integer(&info[1], "usedStateBalance")
+		};
+		let boundary = integer(&states[0], "chargeWidth");
+		let growth = integer(&states[0], "chargeGrowth") +
+			if integer(&states[0], "chargeOldLen") == 0 { 50 } else { 0 };
+		assert_eq!(used(3), boundary - 1, "reservation must reach the boundary");
+		assert_eq!(used(7), boundary - 1, "interrupted crossing must roll back");
+		assert_eq!(used(8), boundary - 1 + growth, "checkpoint must retain crossing");
+		assert_eq!(used(9), boundary - 1, "shrink/removal must refund crossing");
+		assert_eq!(used(10), boundary - 1 + growth, "retry must cross again");
+		assert_eq!(used(11), boundary - 1, "final refund must restore charge");
+		// The three underfunded writes reject; rollback, exact-fit retries,
+		// and zero-budget shrink/removal have no retained host rejection.
+		for frame in 4..=11 {
 			assert_eq!(
 				integer(&states[frame], "replayHostRejects"),
 				if frame <= 6 { 1 } else { 0 },
@@ -1223,10 +1241,21 @@ fn kv_charge_generated_works() {
 				envelope["seed"]
 			);
 		}
+		// Quint already selected the retained prefix. Sample gas within that
+		// checkpoint interval without deriving the expected state from Rust.
+		let seed: u64 = envelope["seed"].as_str().unwrap().parse().unwrap();
+		let sample = [0, 250000, 500000, 750000, 1000000][seed as usize % 5];
+		for state in envelope["trace"]["states"].as_array_mut().unwrap() {
+			if state["replayInterrupt"]["#bigint"] == "0" ||
+				state["replayInterrupt"]["#bigint"] == "1"
+			{
+				state["replayGasSample"] = serde_json::json!({"#bigint":sample.to_string()});
+			}
+		}
 		replay::document_trace(&envelope["trace"])
 			.unwrap_or_else(|error| panic!("seed {}: {error}", envelope["seed"]));
 	}
-	for width in [1 << 30, 1 << 32] {
+	for width in [1u64 << 30, 1 << 32, 1 << 40] {
 		for old_len in [0, 1] {
 			for growth in [1, 2, 64] {
 				assert!(

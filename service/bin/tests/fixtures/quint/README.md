@@ -389,13 +389,23 @@ width or every instruction cutoff.
 
 `kv_charge_fuzz.qnt` adds a streaming `QUINT_FUZZ_PROFILE=kv_charge` campaign.
 Its required regression runs 100 seeds through insertion/overwrite crossings at
-2^30 and 2^32, with value growth of 1, 2, or 64 bytes. Every trace checks zero,
-charge-only, and one-unit-short budgets, exact-fit success, zero-budget
-shrink/removal refunds, and a second exact-fit retry. Coverage assertions require
-all twelve width/mode/growth combinations and the expected rejection counts;
-Rust state and host free balance are compared against the independent Quint
-oracle. These cases still inject work results and do not add gas cutoffs or
-cover compact widths above 2^32.
+2^30, 2^32, and 2^40, with value growth of 1, 2, or 64 bytes. The 2^40 setup
+splits the reservation across 256 distinct, unprovided u32-sized requests.
+The adapter maps reservations larger than 16 MiB to domain-separated hashes of
+the abstract identity and length, without constructing synthetic bytes. Actual
+provision/materialization above 16 MiB is explicitly rejected; smaller preimages
+retain their content-based mapping.
+Every trace checks zero, charge-only, and one-unit-short budgets, rollback of an
+exact-fit write before its checkpoint, retained exact-fit success, zero-budget
+shrink/removal refunds, and a successful retry. Rejection, retained-write, and
+refund frames also exhaust gas after the report checkpoint. The regression
+cycles through five gas samples, including both interval endpoints, with Quint
+selecting the retained prefix independently of Rust gas calibration.
+Coverage assertions require all eighteen width/mode/growth combinations,
+expected rejection counts, and boundary-adjacent charges after recovery and
+retry; Rust state and host free balance are compared against the Quint oracle.
+These cases still inject work results and do not cover every instruction cutoff
+or compact widths above 2^40. Use at least eleven steps to include the final refund.
 
 The remaining upward-message write audit distinguishes growing writes from
 shrinking ones: code application clears announcement metadata; KV removal,

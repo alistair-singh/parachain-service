@@ -7,13 +7,7 @@ These are replay coverage limits; separate Rust tests cover some excluded cases.
 
 Prioritize the remaining Accumulate write-site audit.
 
-## 1 Accumulate storage failures and recovery
-
-- [ ] TODO: Extend KV charge-record boundaries above 2^32 and combine generated
-  crossings with instruction gas recovery; generated insertion/overwrite cases
-  cover 2^30 and 2^32, while fixed gas recovery covers 2^30.
-
-## 2 Refine executable, byte, and package domains
+## 1 Refine executable, byte, and package domains
 
 - [ ] TODO: Extend beyond zero-entry and infinite-child gas exhaustion to arbitrary
   PVF execution and instruction cutoffs with independent expectations; integrate
@@ -22,19 +16,19 @@ Prioritize the remaining Accumulate write-site audit.
   and identical code references, including invalid item counts and heterogeneous
   references. Resolve model-to-Rust error representation gaps explicitly.
 
-## 3 Refine historical lookup lifecycle
+## 2 Refine historical lookup lifecycle
 
 - [ ] TODO: Exercise actual historical availability across provision, forgetting,
   code upgrades, and lookup anchors instead of an isolated availability input.
 
-## 4 Accumulate upgrade migrations and transfer delivery
+## 3 Accumulate upgrade migrations and transfer delivery
 
 - [ ] TODO: Upgrade between different implementations/storage layouts; both
   replay upgrade blobs currently execute the same implementation.
 - [ ] TODO: Execute destination Accumulate after deferred delivery, including
   self-transfer queue entries, rather than only crediting destination balances.
 
-## 5 Successful supervision operations — requires host support
+## 4 Successful supervision operations — requires host support
 
 - [ ] TODO: Add mutable supervision to the host, then replay successful foreign
   preimage operations, storage removal, supervisor handoffs, and ejection.
@@ -42,7 +36,7 @@ Prioritize the remaining Accumulate write-site audit.
   and incoming destination-balance selectors. Keep unsupported traces explicitly
   rejected until the host supports them.
 
-## 6 Generated domains and combined coverage
+## 5 Generated domains and combined coverage
 
 - [ ] TODO: Generate larger sustained batches and arbitrary byte distributions;
   keep dedicated exact-boundary fixtures and collision-free model mappings.
