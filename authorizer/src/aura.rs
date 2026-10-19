@@ -1,7 +1,7 @@
 //! AURA adapter for the service's vendored JAM work-package format.
 
 pub use cumulus_aura_authorizer::{
-	build_collator_proofs, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
+	build_collator_proof, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
 	AuthorizationError, CollatorKey, CollatorProofError, CollatorSignature, ConfigError, ParaId,
 	SignatureVerifier, TokenError, WORK_PACKAGE_SIGN_CTX,
 };
@@ -35,9 +35,7 @@ pub(crate) fn authorize<S: SignatureVerifier>(
 		return Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemService));
 	}
 	let collator_index = config.expected_collator_index(slot);
-	token
-		.check_proof(config, collator_index)
-		.map_err(AuthorizationError::BadToken)?;
+	token.check_proof(config, collator_index)?;
 	token
 		.check_signature::<S>(signable_work_package_hash(package))
 		.map_err(AuthorizationError::BadToken)?;

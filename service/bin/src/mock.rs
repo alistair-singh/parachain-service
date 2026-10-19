@@ -12,7 +12,7 @@ use jam_types::{
 	ExtrinsicHash, ExtrinsicSpec, FixedVec, ProtocolParameters, RefineContext, ServiceId, WorkItem,
 	WorkPackage, WorkPayload,
 };
-use parachain_authorizer::{aura, aura::build_collator_proofs, ParaId};
+use parachain_authorizer::{aura, aura::build_collator_proof, ParaId};
 use primitive_types::H256;
 
 const SERVICE_ID: ServiceId = 0;
@@ -49,7 +49,7 @@ pub fn good_config(para_ids: usize) -> AuthConfig {
 pub fn good_config_for(para_ids: Vec<ParaId>) -> AuthConfig {
 	let signing_key = SigningKey::from_bytes(&COLLATOR_SEED);
 	let key_bytes: [u8; 32] = signing_key.verifying_key().to_bytes();
-	let (root, _) = build_collator_proofs(&[key_bytes]).expect("valid test collator set");
+	let (root, _) = build_collator_proof(&[key_bytes], 0).expect("valid test collator set");
 	let config = aura::AuthConfig {
 		para_ids,
 		parachain_service: SERVICE_ID,
@@ -100,8 +100,7 @@ pub fn make_auth_with_seed(
 	let signing_key = SigningKey::from_bytes(&seed);
 	let key_bytes: [u8; 32] = signing_key.verifying_key().to_bytes();
 
-	let (root, proofs) = build_collator_proofs(&[key_bytes]).expect("valid test collator set");
-	let proof = proofs[0].clone();
+	let (root, proof) = build_collator_proof(&[key_bytes], 0).expect("valid test collator set");
 
 	let config = aura::AuthConfig {
 		para_ids,
@@ -172,9 +171,9 @@ pub fn make_wrong_collator_index_args(
 		.iter()
 		.map(|s| SigningKey::from_bytes(s).verifying_key().to_bytes())
 		.collect();
-	let (root, proofs) = build_collator_proofs(&keys).expect("valid test collator set");
+	let (root, proof) =
+		build_collator_proof(&keys, proof_for_collator as u32).expect("valid test collator set");
 	let key = keys[proof_for_collator];
-	let proof = proofs[proof_for_collator].clone();
 
 	let config = aura::AuthConfig {
 		para_ids,
