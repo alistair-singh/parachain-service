@@ -1157,6 +1157,7 @@ dependencies = [
  "blake2b_simd",
  "hash-db",
  "hash256-std-hasher",
+ "jam-codec",
  "jam-types 0.1.28",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
