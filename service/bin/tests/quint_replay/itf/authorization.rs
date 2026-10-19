@@ -32,11 +32,16 @@ pub(super) fn authorize(
 	match fault {
 		"wrong_service" => config.parachain_service = MOCK_SERVICE_ID + 1,
 		"para_count" => config.para_ids.clear(),
-		"zero_collators" => config.collator_set_size = 0,
-		"zero_duration" => config.slot_duration = 0,
 		_ => {},
 	}
 	package.authorizer.config.0 = config.encode();
+	// Corrupt the encoded u32 fields: NonZero prevents constructing invalid configs.
+	let len = package.authorizer.config.0.len();
+	match fault {
+		"zero_collators" => package.authorizer.config.0[len - 8..len - 4].fill(0),
+		"zero_duration" => package.authorizer.config.0[len - 4..].fill(0),
+		_ => {},
+	}
 	let key = SigningKey::from_bytes(&SEED);
 	let mut token = AuthToken {
 		proof: vec![],

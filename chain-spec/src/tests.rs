@@ -31,8 +31,8 @@ fn realm_config(para: ParaId) -> AuthConfig {
 		para_ids: vec![para],
 		parachain_service: PARACHAIN_SERVICE_ID,
 		collator_set_root: H256::zero(),
-		collator_set_size: 1,
-		slot_duration: 6,
+		collator_set_size: core::num::NonZero::new(1).expect("nonzero configuration"),
+		slot_duration: core::num::NonZero::new(6).expect("nonzero configuration"),
 	}
 }
 

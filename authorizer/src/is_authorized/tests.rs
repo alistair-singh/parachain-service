@@ -102,8 +102,9 @@ impl Collators {
 			para_ids,
 			parachain_service: PARACHAIN_SERVICE_ID,
 			collator_set_root,
-			collator_set_size: self.keys.len() as u32,
-			slot_duration: 1,
+			collator_set_size: core::num::NonZero::new(self.keys.len() as u32)
+				.expect("nonzero configuration"),
+			slot_duration: core::num::NonZero::new(1).expect("nonzero configuration"),
 		}
 	}
 
@@ -397,34 +398,6 @@ fn an_assigned_core_still_counts_items_works() {
 				&package
 			),
 			Err(AuthorizationError::InvalidWorkItemCount)
-		));
-	}
-}
-
-/// Invalid AURA configs are rejected through the adapter, before proof/signature checks.
-#[test]
-fn invalid_aura_config_errors() {
-	use crate::aura::{AuthorizationError as AuraError, ConfigError};
-
-	for scheme in [Scheme::Ed25519, Scheme::Sr25519] {
-		let collators = Collators::new(scheme, &["//Alice"]);
-		let package = block(1, 0);
-		let token = &collators.tokens(&package)[0];
-		let mut config = collators.config(vec![ParaId::new(0)]);
-		config.collator_set_size = 0;
-		assert!(matches!(
-			authorize_under(scheme, &config, token, &package),
-			Err(AuthorizationError::BadAuthorization(AuraError::BadConfig(
-				ConfigError::ZeroCollatorSetSize
-			)))
-		));
-		config.collator_set_size = 1;
-		config.slot_duration = 0;
-		assert!(matches!(
-			authorize_under(scheme, &config, token, &package),
-			Err(AuthorizationError::BadAuthorization(AuraError::BadConfig(
-				ConfigError::ZeroSlotDuration
-			)))
 		));
 	}
 }

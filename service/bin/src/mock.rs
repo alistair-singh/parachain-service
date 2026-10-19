@@ -54,8 +54,8 @@ pub fn good_config_for(para_ids: Vec<ParaId>) -> AuthConfig {
 		para_ids,
 		parachain_service: SERVICE_ID,
 		collator_set_root: root,
-		collator_set_size: 1,
-		slot_duration: 1,
+		collator_set_size: core::num::NonZero::new(1).expect("nonzero configuration"),
+		slot_duration: core::num::NonZero::new(1).expect("nonzero configuration"),
 	};
 	AuthConfig(config.encode())
 }
@@ -107,8 +107,8 @@ pub fn make_auth_with_seed(
 		para_ids,
 		parachain_service: SERVICE_ID,
 		collator_set_root: root,
-		collator_set_size: 1,
-		slot_duration: 1,
+		collator_set_size: core::num::NonZero::new(1).expect("nonzero configuration"),
+		slot_duration: core::num::NonZero::new(1).expect("nonzero configuration"),
 	};
 	let config_enc = AuthConfig(config.encode());
 
@@ -141,8 +141,8 @@ pub fn make_single_collator_args_with_key(
 		para_ids,
 		parachain_service: SERVICE_ID,
 		collator_set_root: root,
-		collator_set_size: 1,
-		slot_duration: 1,
+		collator_set_size: core::num::NonZero::new(1).expect("nonzero configuration"),
+		slot_duration: core::num::NonZero::new(1).expect("nonzero configuration"),
 	};
 	let token = aura::AuthToken { proof: vec![], key, signature };
 	is_authorized_args(
@@ -180,8 +180,9 @@ pub fn make_wrong_collator_index_args(
 		para_ids,
 		parachain_service: SERVICE_ID,
 		collator_set_root: root,
-		collator_set_size: all_seeds.len() as u32,
-		slot_duration: 1,
+		collator_set_size: core::num::NonZero::new(all_seeds.len() as u32)
+			.expect("nonzero configuration"),
+		slot_duration: core::num::NonZero::new(1).expect("nonzero configuration"),
 	};
 	let token = aura::AuthToken { proof, key, signature: [0u8; 64] };
 	is_authorized_args(

@@ -2,7 +2,7 @@
 
 pub use cumulus_aura_authorizer::{
 	build_collator_proofs, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
-	AuthorizationError, CollatorKey, CollatorProofError, CollatorSignature, ConfigError, ParaId,
+	AuthorizationError, CollatorKey, CollatorProofError, CollatorSignature, ParaId,
 	SignatureVerifier, TokenError, WORK_PACKAGE_SIGN_CTX,
 };
 
@@ -27,8 +27,7 @@ pub(crate) fn authorize<S: SignatureVerifier>(
 	package: &jam_types::WorkPackage,
 	slot: jam_types::Slot,
 ) -> Result<AuthTrace, AuthorizationError> {
-	let collator_index =
-		config.expected_collator_index(slot).map_err(AuthorizationError::BadConfig)?;
+	let collator_index = config.expected_collator_index(slot);
 	token
 		.check_proof(config, collator_index)
 		.map_err(AuthorizationError::BadToken)?;
