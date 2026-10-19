@@ -78,8 +78,12 @@ input to the isolated historical-lookup context, reflecting the pinned model's
 registry abstraction; arbitrary PVF semantics and historical availability
 transitions are outside this model.
 
-Only an actual PVM trap satisfies a predicted work failure. Out-of-gas, invalid
-output, and host initialization failures fail replay. New campaign traces carry
+A predicted work failure requires an actual PVM trap, or actual gas exhaustion
+in an explicit gas-fault scenario. Ordinary traces still reject out-of-gas;
+invalid output and host initialization failures always fail replay. The dedicated
+`refine_gas` campaign includes zero-entry, infinite-child, and sampled finite-script
+gas cutoffs, funded candidates in the same block, and subsequent retries.
+New campaign traces carry
 `replayRefineRequired` so dropping refine inputs cannot silently downgrade a
 saved trace into an accumulate-only replay. Legacy fixtures remain supported.
 

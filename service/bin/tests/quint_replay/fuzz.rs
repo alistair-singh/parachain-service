@@ -33,6 +33,7 @@ fn generator(seed: u64, stride: u64, count: u64, steps: u64) -> Command {
 fn generator_profile(profile: &str, seed: u64, stride: u64, count: u64, steps: u64) -> Command {
 	let input = match profile {
 		"fuzz" => "service/bin/tests/fixtures/quint/fuzz.qnt",
+		"refine_gas" => "service/bin/tests/fixtures/quint/refine_gas_pipeline.qnt",
 		"authorization" => "service/bin/tests/fixtures/quint/authorization_fuzz.qnt",
 		"designation" => "service/bin/tests/fixtures/quint/designation_fuzz.qnt",
 		"self_payment" => "service/bin/tests/fixtures/quint/self_payment_fuzz.qnt",
@@ -53,7 +54,9 @@ fn generator_profile(profile: &str, seed: u64, stride: u64, count: u64, steps: u
 		&count.to_string(),
 		&steps.to_string(),
 	]);
-	if profile == "kv_charge" {
+	if profile == "refine_gas" {
+		command.arg("gas_pipeline");
+	} else if profile == "kv_charge" {
 		command.arg("kv_charge_fuzz");
 	} else if profile == "authorization" {
 		command.arg("authorization_fuzz");
@@ -1310,5 +1313,34 @@ fn refine_bytes_pipeline_generated_works() {
 		"pvf_entry",
 	] {
 		assert!(faults.contains(fault), "missing pipeline fault {fault}");
+	}
+}
+
+#[test]
+#[ignore = "checks Refine gas cutoffs through Accumulate; requires Node and Quint 0.32.0"]
+fn refine_gas_pipeline_generated_works() {
+	let output = generator_profile("refine_gas", 1, 1, 10, 15).output().unwrap();
+	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+	let mut cases = std::collections::BTreeSet::new();
+	for line in String::from_utf8(output.stdout).unwrap().lines() {
+		let envelope: Value = serde_json::from_str(line).unwrap();
+		assert_eq!(envelope["trace"]["replayRefineRequired"], true);
+		for state in envelope["trace"]["states"].as_array().unwrap().iter().skip(1) {
+			let input = &state["replayRefineInputs"]["value"][0];
+			cases.insert((
+				input["gasMode"].as_str().unwrap().to_owned(),
+				input["gasSample"]["#bigint"].as_str().unwrap().to_owned(),
+			));
+		}
+		replay::document_trace(&envelope["trace"])
+			.unwrap_or_else(|error| panic!("seed {}: {error}", envelope["seed"]));
+	}
+	for mode in ["zero", "child", "cutoff"] {
+		for sample in ["0", "250000", "500000", "750000", "1000000"] {
+			assert!(
+				cases.contains(&(mode.to_owned(), sample.to_owned())),
+				"missing {mode}/{sample}"
+			);
+		}
 	}
 }

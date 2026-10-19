@@ -28,6 +28,14 @@ module combined {
       malformed("pvf_memory")), 4))
     .then(refinedBlock(List(candidate(2, 0)), 5))
 
+  run gas_cutoffs_works = replayInit
+    .then(refinedBlock(List(gasCandidate("zero", 0, 0), gasCandidate("funded", 0, 0)), 1))
+    .then(refinedBlock(List(gasCandidate("child", 0, 1), gasCandidate("funded", 0, 1)), 2))
+    .then(refinedBlock(List(gasCandidate("cutoff", 0, 2), gasCandidate("cutoff", 250000, 2)), 3))
+    .then(refinedBlock(List(gasCandidate("cutoff", 500000, 2), gasCandidate("cutoff", 750000, 2)), 4))
+    .then(refinedBlock(List(gasCandidate("cutoff", 1000000, 2), gasCandidate("funded", 0, 2)), 5))
+    .then(refinedBlock(List(gasCandidate("funded", 0, 3)), 6))
+
   run single_works = replayInit.then(refinedBlock(List(candidate(0, 0)), 1))
     .then(refinedBlock(List(candidate(1, 0)), 2))
   run ordered_batch_works = replayInit.then(refinedBlock(

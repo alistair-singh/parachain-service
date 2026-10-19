@@ -220,7 +220,7 @@ pub(super) fn execute_authorized(
 		.transpose()?
 		.unwrap_or("normal");
 	match gas_mode {
-		"normal" | "zero" | "funded" => {},
+		"normal" | "zero" | "funded" | "cutoff" => {},
 		"child" => script.push(Call::ExhaustGas),
 		_ => return Err(format!("unsupported gasMode {gas_mode}")),
 	}
@@ -331,6 +331,29 @@ pub(super) fn execute_authorized(
 		None
 	};
 	context.work_package = package.into();
+	if gas_mode == "cutoff" {
+		if !available || missing || byte_fault != "valid" || fault.is_some() {
+			return Err("cutoff requires available valid code and unmodified authorization".into());
+		}
+		let sample = bounded_integer::<u64>(field(input, "gasSample")?, "gas sample")?;
+		if sample > 1_000_000 {
+			return Err("gas sample exceeds 1000000".into());
+		}
+		// Calibrate only cost, never the expected failure or Accumulate state.
+		// Quint has already selected WorkErr. Require a terminating successful
+		// control so a pre-existing trap cannot masquerade as gas coverage.
+		let (control, _, used) = engine.refine(service_hash, RefineCallContext::from(&mut context));
+		let output = control.map_err(|e| format!("cutoff control failed: {e:?}"))?;
+		if !matches!(
+			ParachainWorkDigest::decode_all(&mut &output[..]),
+			Ok(ParachainWorkDigest::Ok { .. })
+		) || used == 0
+		{
+			return Err("cutoff control must produce a successful digest with nonzero gas".into());
+		}
+		context.output_len = 0;
+		context.gas = (((used - 1) as u128 * sample as u128) / 1_000_000) as u64;
+	}
 	let (actual, _, _) = engine.refine(service_hash, RefineCallContext::from(&mut context));
 	match actual {
 		// The hazmat API does not expose the error enum. Compare its exact

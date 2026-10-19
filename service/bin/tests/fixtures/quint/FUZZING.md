@@ -20,7 +20,7 @@ Configuration:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `QUINT_FUZZ_PROFILE` | `fuzz` | `fuzz` for combined Refine → Accumulate inputs; `authorization` for real IsAuthorized → Refine → Accumulate admission and malformed-byte cases; `storage` for metadata/KV/queue failures; `storage_recovery` for those failures combined with checkpoint exhaustion; `code_storage` for code acquisition/announcement failures; `code_recovery` for those failures with checkpoint exhaustion; `outgoing_boundary` for exact spendable-balance limits; `self_payment` for deferred self-credit; `designation` for privilege changes |
+| `QUINT_FUZZ_PROFILE` | `fuzz` | `fuzz` for combined Refine → Accumulate inputs; `refine_gas` for Refine gas failures mixed with funded work and retries; `authorization` for real IsAuthorized → Refine → Accumulate admission and malformed-byte cases; `storage` for metadata/KV/queue failures; `storage_recovery` for those failures combined with checkpoint exhaustion; `code_storage` for code acquisition/announcement failures; `code_recovery` for those failures with checkpoint exhaustion; `outgoing_boundary` for exact spendable-balance limits; `self_payment` for deferred self-credit; `designation` for privilege changes |
 | `QUINT_FUZZ_TRACES` | `100` | Total traces across workers; `0` runs until failure/interruption |
 | `QUINT_FUZZ_STEPS` | `15` | Transitions per trace, 1–10000 |
 | `QUINT_FUZZ_WORKERS` | `1` | Independent Rust workers and generator processes |
@@ -531,3 +531,22 @@ failures. The standard full workspace command includes this generated test.
 See [the fixture guide](README.md#authorization-pipeline) for the symbolic exact
 trace mapping and single-collator/gas limits. Malformed traces are explicit
 post-authorization boundary injections, never claimed as real authorizer output.
+
+### Refine gas pipeline
+
+`QUINT_FUZZ_PROFILE=refine_gas` generates zero-entry, infinite-child, and
+finite-script cutoff failures surrounding a funded candidate in each block.
+Quint predicts `WorkErr` for interrupted candidates before Rust executes them;
+only the funded candidate may advance the head and KV state. Later blocks retry
+from that retained head. The opt-in regression requires all three fault modes
+and all five cutoff samples across ten seeds. Each seed selects a random
+starting phase in a 15-block cycle containing every mode/sample combination;
+use at least 15 steps to complete the cycle.
+
+For finite scripts, a discarded funded invocation must return a successful
+digest. Its measured gas cost sets a budget between zero and one below that
+cost, sampled at 0%, 25%, 50%, 75%, and 100% of the interval. The probe does not
+supply the expected failure or Accumulate state. Refine must actually trap or
+exhaust gas; its actual work failure is passed to Accumulate. The adapter resets
+the probe's output-length accounting before the checked invocation. This covers
+a finite host-call script, not arbitrary PVF programs or every instruction.

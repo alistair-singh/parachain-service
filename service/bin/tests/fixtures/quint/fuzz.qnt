@@ -63,7 +63,7 @@ module fuzz {
     val result = if (mode == 1) WorkErr else refine(s, pkg, false, calls, anchor)[0]
     { work: { result: result, authTrace: auth }, input: {
       pkg: pkg, calls: calls, anchor: anchor, missingPrefix: false,
-      available: codeAvailable(s, pkg.items[0].validationCode), skip: mode == 1, byteFault: "valid"
+      available: codeAvailable(s, pkg.items[0].validationCode), skip: mode == 1, byteFault: "valid", gasMode: "normal", gasSample: 0
     } }
   }
 
@@ -409,7 +409,7 @@ module fuzz {
     val parent = if (svc.isLive(p)) svc.paraInfo(p).headData else 0
     val pkg: WorkPackage = { authorizedParas: List(p),
       items: List({ validationCode: { hash: { vchBytes: h }, len: FixedCodeLen } }) }
-    val input: RefineInput = { pkg: pkg, missingPrefix: false, skip: false, byteFault: "valid",
+    val input: RefineInput = { pkg: pkg, missingPrefix: false, skip: false, byteFault: "valid", gasMode: "normal", gasSample: 0,
       available: codeAvailable(svc, pkg.items[0].validationCode), anchor: now,
       calls: List(SetParentHeadHash(headHash(parent)), SetHead(parent + 1)).concat(sends(msgs)) }
     all { lifecycleWork(p, h, msgs, gap), noGasWithRefine(Some(List(input))) }
@@ -440,6 +440,22 @@ module fuzz {
     nondet count = oneOf(Set(0, 1, 2))
     val h = activeCodeHashOr(svc.paraInfo(caller), NoCodeHash).vchBytes
     refinedLifecycleWork(caller, h, List(first, second).slice(0, count), gap)
+  }
+
+  def gasCandidate(mode: str, sample: int, parent: int): RefinedWork = {
+    val p = replayCandidate(svc, CoretimeParaId, parent,
+      activeCodeCandidate(svc, CoretimeParaId), 0, now, 7,
+      List(SetKV({ key: List(1), value: List(2, 3, 4) })))
+    { input: { ...p.input, gasMode: mode, gasSample: sample },
+      work: if (mode == "funded") p.work else { ...p.work, result: WorkErr } }
+  }
+  action refineGasBlockAt(mode: str, sample: int): bool = {
+    val parent = svc.paraInfo(CoretimeParaId).headData
+    // Faults surround a funded candidate. Only its actual digest may advance
+    // the head; a later block retries from that retained head.
+    all { codeAvailable(svc, activeCodeCandidate(svc, CoretimeParaId).validationCode),
+      refinedBlock(List(gasCandidate(mode, sample, parent),
+        gasCandidate("funded", 0, parent), gasCandidate(mode, sample, parent + 1)), now + 1) }
   }
 
   action replayStep = any {

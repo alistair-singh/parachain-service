@@ -8,6 +8,7 @@ const SINGLE: &str = include_str!("../fixtures/quint/combined/single_works.itf.j
 fn trivial_works() {
 	for trace in [
 		SINGLE,
+		include_str!("../fixtures/quint/combined/gas_cutoffs_works.itf.json"),
 		include_str!("../fixtures/quint/combined/malformed_works.itf.json"),
 		include_str!("../fixtures/quint/combined/ordered_batch_works.itf.json"),
 		include_str!("../fixtures/quint/combined/errors_works.itf.json"),
@@ -68,4 +69,26 @@ fn bypass_byte_fault_errors() {
 			assert!(replay::document_trace(&trace).unwrap_err().contains("expected WorkErr"));
 		}
 	}
+}
+
+#[test]
+fn bypass_gas_fault_errors() {
+	for frame in [1, 2, 3, 4, 5] {
+		let mut trace: Value = serde_json::from_str(include_str!(
+			"../fixtures/quint/combined/gas_cutoffs_works.itf.json"
+		))
+		.unwrap();
+		trace["states"][frame]["replayRefineInputs"]["value"][0]["gasMode"] = json!("funded");
+		assert!(replay::document_trace(&trace).unwrap_err().contains("expected WorkErr"));
+	}
+}
+
+#[test]
+fn invalid_gas_sample_errors() {
+	let mut trace: Value =
+		serde_json::from_str(include_str!("../fixtures/quint/combined/gas_cutoffs_works.itf.json"))
+			.unwrap();
+	trace["states"][3]["replayRefineInputs"]["value"][0]["gasSample"] =
+		json!({"#bigint":"1000001"});
+	assert!(replay::document_trace(&trace).unwrap_err().contains("gas sample exceeds"));
 }

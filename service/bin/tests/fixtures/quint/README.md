@@ -248,8 +248,13 @@ calibrating against Rust outputs. A funded control executes the same declaration
 without the loop at that budget; missing-code cases check lookup precedence, and
 fixtures execute a funded call after exhaustion. Mutations remove the gas fault
 and must disagree with the oracle. Ordinary traces still reject unexpected gas
-errors. This covers entry and child exhaustion, not arbitrary instruction cutoffs
-or arbitrary PVFs, and is not yet integrated with Accumulate.
+errors. `combined/gas_cutoffs_works.itf.json` now carries entry, child, and
+finite-script gas failures through Accumulate, with funded candidates and later
+retries. Finite cutoffs sample five budgets from zero to one below a successful
+control's measured cost. Quint independently predicts failed work and retained
+state; gas calibration supplies neither. `QUINT_FUZZ_PROFILE=refine_gas` extends
+this to generated mixed batches, requiring all three modes and five samples.
+Arbitrary PVFs and exhaustive instruction cutoffs remain outside this domain.
 `refine_errors/` supplies errors directly to accumulate. Regenerate fixtures with
 `scripts/generate-quint-replays.py`. All use the same parser and saved-failure
 replay entry point; see [FUZZING.md](FUZZING.md).

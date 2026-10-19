@@ -9,9 +9,10 @@ Prioritize the remaining Accumulate write-site audit.
 
 ## 1 Refine executable, byte, and package domains
 
-- [ ] TODO: Extend beyond zero-entry and infinite-child gas exhaustion to arbitrary
-  PVF execution and instruction cutoffs with independent expectations; integrate
-  gas faults into Refine → Accumulate campaigns.
+- [ ] TODO: Extend sampled finite-script gas cutoffs to arbitrary PVF execution
+  and broader instruction domains with independent expectations. Zero-entry,
+  infinite-child, and sampled finite-script exhaustion now run through combined
+  Refine → Accumulate campaigns, with funded controls and subsequent retries.
 - [ ] TODO: Extend package inputs beyond the adapter's one-or-two-item domain
   and identical code references, including invalid item counts and heterogeneous
   references. Resolve model-to-Rust error representation gaps explicitly.
