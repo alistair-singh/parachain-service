@@ -2,14 +2,14 @@
 
 //! JAM host adapter for AURA authorization.
 //!
-//! Shared protocol types live in `cumulus-aura-authorizer`. The ed25519 and sr25519 verifier
+//! Shared protocol types live in `cumulus-aura-authorizer-utils`. The ed25519 and sr25519 verifier
 //! programs supply signature verification and call [`authorize`] from their entry points.
 
 extern crate alloc;
 
 use alloc::format;
 
-pub use cumulus_aura_authorizer::ParaId;
+pub use cumulus_aura_authorizer_utils::ParaId;
 use jam_types::{AuthTrace, CoreIndex};
 
 pub mod aura;

@@ -1150,7 +1150,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-aura-authorizer"
+name = "cumulus-aura-authorizer-utils"
 version = "0.1.0"
 dependencies = [
  "binary-merkle-tree",
@@ -3077,7 +3077,7 @@ name = "parachain-authorizer"
 version = "0.1.0"
 dependencies = [
  "blake2b_simd",
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-pvm-common",
  "jam-types 0.1.29",
  "parachain-authorizer-ed25519",
@@ -3118,7 +3118,7 @@ version = "0.1.0"
 dependencies = [
  "blake2b_simd",
  "cargo-jam-build",
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-chainspec",
  "jam-std-common",
  "jam-types 0.1.29",
@@ -3134,7 +3134,7 @@ name = "parachain-service"
 version = "0.1.0"
 dependencies = [
  "bounded-collections",
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-codec",
  "jam-pvm-common",
  "jam-std-common",
@@ -3179,7 +3179,7 @@ name = "parachain-service-core"
 version = "0.1.0"
 dependencies = [
  "bounded-collections",
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-null-authorizer-bin",
  "jam-pvm-common",
  "jam-std-common",

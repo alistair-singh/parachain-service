@@ -1,6 +1,6 @@
 //! AURA adapter for the service's vendored JAM work-package format.
 
-pub use cumulus_aura_authorizer::{
+pub use cumulus_aura_authorizer_utils::{
 	build_collator_proof, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
 	AuthorizationError, CollatorKey, CollatorProofError, CollatorSignature, ConfigError, ParaId,
 	SignatureVerifier, TokenError, WORK_PACKAGE_SIGN_CTX,

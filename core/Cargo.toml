@@ -13,7 +13,7 @@ publish = false
 workspace = true
 
 [dependencies]
-cumulus-aura-authorizer = { workspace = true }
+cumulus-aura-authorizer-utils = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 sp-crypto-hashing = { workspace = true }
 bounded-collections = { workspace = true }
@@ -39,7 +39,7 @@ polkajam-trie = { workspace = true }
 [features]
 default = []
 std = [
-	"cumulus-aura-authorizer/std",
+	"cumulus-aura-authorizer-utils/std",
 	"polkadot-parachain-primitives/std",
 	"sp-crypto-hashing/std",
 	"bounded-collections/std",

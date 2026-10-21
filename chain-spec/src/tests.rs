@@ -4,7 +4,7 @@ use parachain_service_core::types::validation_code_hash_bytes;
 use std::collections::{BTreeMap, BTreeSet};
 
 use codec::{Decode, Encode};
-use cumulus_aura_authorizer::AuthConfig;
+use cumulus_aura_authorizer_utils::AuthConfig;
 use jam_std_common::hash_raw;
 use jam_types::{AuthorizerHash, Balance};
 use parachain_service::{
