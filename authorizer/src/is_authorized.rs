@@ -27,7 +27,7 @@ pub(crate) fn is_authorized<S: SignatureVerifier>(
 	// §7.1 selects the collator using the recent anchor's timeslot.
 	let slot = refine_context().anchor_slot;
 
-	let trace = aura::authorize::<S>(&config, &token, &package, slot)
+	let trace = aura::AuthTrace::try_from_token::<S>(&config, &token, &package, slot)
 		.map_err(AuthorizationError::BadAuthorization)?;
 	Ok(AuthTrace(trace.encode()))
 }

@@ -2,8 +2,8 @@
 //! sr25519 signatures must use the keystore's `substrate` transcript context.
 
 use crate::aura::{
-	authorize, build_collator_proof, signable_work_package_hash, AuthConfig, AuthToken,
-	AuthorizationError, CollatorKey, CollatorSignature, ConfigError, TokenError,
+	build_collator_proof, signable_work_package_hash, AuthConfig, AuthToken, AuthorizationError,
+	CollatorKey, CollatorSignature, ConfigError, TokenError,
 };
 use codec::{DecodeAll as _, Encode};
 use jam_types::{
@@ -182,8 +182,8 @@ fn authorize_under(
 ) -> Result<AuthTrace, AuthorizationError> {
 	let slot = package.context.anchor_slot;
 	match scheme {
-		Scheme::Ed25519 => authorize::<Ed25519>(config, token, package, slot),
-		Scheme::Sr25519 => authorize::<Sr25519>(config, token, package, slot),
+		Scheme::Ed25519 => AuthTrace::try_from_token::<Ed25519>(config, token, package, slot),
+		Scheme::Sr25519 => AuthTrace::try_from_token::<Sr25519>(config, token, package, slot),
 	}
 }
 

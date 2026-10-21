@@ -12,7 +12,7 @@ use alloc::format;
 pub use cumulus_aura_authorizer_utils::ParaId;
 use jam_types::{AuthTrace, CoreIndex};
 
-pub mod aura;
+pub use cumulus_aura_authorizer_utils as aura;
 mod is_authorized;
 
 /// Run authorization with the signature scheme selected by the verifier program.

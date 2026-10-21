@@ -1158,7 +1158,7 @@ dependencies = [
  "hash-db",
  "hash256-std-hasher",
  "jam-codec",
- "jam-types 0.1.28",
+ "jam-types",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "primitive-types",
@@ -1604,7 +1604,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "jam-node",
- "jam-types 0.1.29",
+ "jam-types",
  "parachain-service",
  "parity-scale-codec",
 ]
@@ -2324,7 +2324,7 @@ version = "0.1.29"
 dependencies = [
  "bounded-collections",
  "jam-codec",
- "jam-types 0.1.29",
+ "jam-types",
  "rand 0.9.5",
  "serde",
  "thiserror 2.0.19",
@@ -2337,7 +2337,7 @@ dependencies = [
  "bounded-collections",
  "jam-codec",
  "jam-std-common",
- "jam-types 0.1.29",
+ "jam-types",
  "log",
  "serde",
  "serde_json",
@@ -2400,7 +2400,7 @@ dependencies = [
  "jam-null-authorizer-bin",
  "jam-program-blob-common",
  "jam-std-common",
- "jam-types 0.1.29",
+ "jam-types",
  "log",
  "p256",
  "parity-db",
@@ -2449,7 +2449,7 @@ version = "0.1.29"
 dependencies = [
  "bounded-collections",
  "jam-codec",
- "jam-types 0.1.29",
+ "jam-types",
  "picoalloc",
  "polkavm-derive 0.36.0",
 ]
@@ -2468,7 +2468,7 @@ dependencies = [
  "ed25519-consensus",
  "futures",
  "jam-codec",
- "jam-types 0.1.29",
+ "jam-types",
  "jsonrpsee",
  "p256",
  "rand 0.9.5",
@@ -2477,19 +2477,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.19",
  "tiny-keccak",
-]
-
-[[package]]
-name = "jam-types"
-version = "0.1.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "658ebd3553ff9639a66d4d42b62b6a4c5a0d31923c36aa90a2dbf243545126ca"
-dependencies = [
- "atomic-traits",
- "bounded-collections",
- "bytes",
- "jam-codec",
- "macro_rules_attribute",
 ]
 
 [[package]]
@@ -2907,7 +2894,7 @@ name = "mock-dest-service"
 version = "0.1.0"
 dependencies = [
  "jam-pvm-common",
- "jam-types 0.1.29",
+ "jam-types",
  "polkavm-derive 0.36.0",
 ]
 
@@ -3079,7 +3066,7 @@ dependencies = [
  "blake2b_simd",
  "cumulus-aura-authorizer-utils",
  "jam-pvm-common",
- "jam-types 0.1.29",
+ "jam-types",
  "parachain-authorizer-ed25519",
  "parachain-authorizer-sr25519",
  "parachain-service",
@@ -3096,7 +3083,7 @@ version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
  "jam-pvm-common",
- "jam-types 0.1.29",
+ "jam-types",
  "parachain-authorizer",
  "polkavm-derive 0.36.0",
 ]
@@ -3106,7 +3093,7 @@ name = "parachain-authorizer-sr25519"
 version = "0.1.0"
 dependencies = [
  "jam-pvm-common",
- "jam-types 0.1.29",
+ "jam-types",
  "parachain-authorizer",
  "polkavm-derive 0.36.0",
  "schnorrkel",
@@ -3121,7 +3108,7 @@ dependencies = [
  "cumulus-aura-authorizer-utils",
  "jam-chainspec",
  "jam-std-common",
- "jam-types 0.1.29",
+ "jam-types",
  "parachain-service",
  "parachain-service-core",
  "parity-scale-codec",
@@ -3138,7 +3125,7 @@ dependencies = [
  "jam-codec",
  "jam-pvm-common",
  "jam-std-common",
- "jam-types 0.1.29",
+ "jam-types",
  "parachain-service-core",
  "parity-scale-codec",
  "polkavm",
@@ -3159,7 +3146,7 @@ dependencies = [
  "jam-codec",
  "jam-node",
  "jam-std-common",
- "jam-types 0.1.29",
+ "jam-types",
  "log",
  "parachain-authorizer",
  "parachain-service",
@@ -3183,7 +3170,7 @@ dependencies = [
  "jam-null-authorizer-bin",
  "jam-pvm-common",
  "jam-std-common",
- "jam-types 0.1.29",
+ "jam-types",
  "num_enum",
  "parity-scale-codec",
  "polkadot-parachain-primitives",

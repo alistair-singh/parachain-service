@@ -88,8 +88,10 @@ tiny-keccak = { version = "2.0.2", default-features = false, features = ["keccak
 sp-crypto-hashing = { version = "0.1.0", default-features = false }
 sp-io = { path = "vendor/polkadot-sdk-companion/substrate/primitives/io", default-features = false }
 
-# The service uses the newer vendored Polkajam API; the standalone AURA crate
-# independently uses published jam-types 0.1.28.
+# Use the same JAM types for the service and the SDK AURA utilities.
+[patch.crates-io]
+jam-types = { path = "vendor/polkajam/crates/jam-types" }
+
 [patch."ssh://git@github.com/paritytech/polkajam.git"]
 jam-std-common = { path = "vendor/polkajam/crates/jam-std-common" }
 jam-types = { path = "vendor/polkajam/crates/jam-types" }
